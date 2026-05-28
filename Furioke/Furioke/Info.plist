@@ -25,5 +25,9 @@
 	<array>
 		<string>spotify</string>
 	</array>
+	<key>SUPABASE_URL</key>
+	<string>https://hrzxsnlqhzdlxcgaboqf.supabase.co</string>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>sb_publishable_AgvsbXxiLD0JnteiDzaM-g_lSwU6s2c</string>
 </dict>
 </plist>

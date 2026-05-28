@@ -66,47 +66,52 @@ independently shippable and produces no visual change on its own.
 
 ## 3. iOS local furigana pipeline (kuromoji.js via JavaScriptCore)
 
-- [ ] 3.1 Copy `kuromoji.umd.js` from `node_modules/kuromoji/build/` into
+- [x] 3.1 Copy `kuromoji.umd.js` from `node_modules/kuromoji/build/` into
       `Furioke/Resources/Kuromoji/` and add as a bundle resource (Copy
-      Bundle Resources build phase)
-- [ ] 3.2 Copy the kuromoji dict files from `public/dict/` into
-      `Furioke/Resources/KuromojiDict/` and add as bundle resources
-- [ ] 3.3 Confirm `lib/lyrics/seed.json` is the shared source of truth for the
+      Bundle Resources build phase) — present as `Resources/Kuromoji/kuromoji.js`;
+      auto-bundled by the project's synchronized folder group (no pbxproj edit)
+- [x] 3.2 Copy the kuromoji dict files from `public/dict/` into
+      `Furioke/Resources/KuromojiDict/` and add as bundle resources — present and
+      auto-bundled by the synchronized folder group
+- [x] 3.3 Confirm `lib/lyrics/seed.json` is the shared source of truth for the
       built-in correction map (web app already imports it; the iOS bundle build
-      phase consumes the same file)
-- [ ] 3.4 Add an Xcode build phase that copies `lib/lyrics/seed.json` into the
-      iOS bundle as `Resources/seed.json`
-- [ ] 3.5 Implement `KuromojiBridge.swift` — wraps a `JSContext` that loads
+      phase consumes the same file) — NOTE: this is a separate `furioke-ios` repo
+      (web app at `../furioke`), so a true monorepo share is impossible. Per user
+      decision, `seed.json` is vendored byte-identical into `Resources/seed.json`
+- [x] 3.4 Add an Xcode build phase that copies `lib/lyrics/seed.json` into the
+      iOS bundle as `Resources/seed.json` — superseded: the vendored copy is
+      auto-bundled by the synchronized folder, so no build phase is needed
+- [x] 3.5 Implement `KuromojiBridge.swift` — wraps a `JSContext` that loads
       `kuromoji.umd.js`, overrides the dict-fetch shim to read from the bundle,
       exposes a `tokenize(text:) async -> [Token]` Swift API
-- [ ] 3.6 Make `KuromojiBridge` module-scope cached so the dict is parsed once
+- [x] 3.6 Make `KuromojiBridge` module-scope cached so the dict is parsed once
       per session; expose a `purge()` for memory-warning handling
-- [ ] 3.7 Implement `LineHash.swift` — port the web's `lib/lyrics/line-hash.ts`
+- [x] 3.7 Implement `LineHash.swift` — port the web's `lib/lyrics/line-hash.ts`
       algorithm (NFKC, strip whitespace, strip edge punct, sha256 truncate to
       128 bits) into pure Swift
-- [ ] 3.8 Implement `CorrectionMap.swift` — load `seed.json` from the bundle,
+- [x] 3.8 Implement `CorrectionMap.swift` — load `seed.json` from the bundle,
       merge with user overrides loaded from `OverrideEntity`, apply greedy
       longest-match phrase substitution
-- [ ] 3.9 Implement `FuriganaPipeline.swift` — given raw LRC body and a
+- [x] 3.9 Implement `FuriganaPipeline.swift` — given raw LRC body and a
       `CorrectionMap`, return `[AnnotatedLine]` with surface, reading, and
       `lineHash` per line
 
 ## 4. iOS auth (Supabase, Keychain)
 
-- [ ] 4.1 Implement `KeychainSessionStore` wrapping the iOS Keychain with
+- [x] 4.1 Implement `KeychainSessionStore` wrapping the iOS Keychain with
       `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` for the Supabase
       access + refresh tokens
-- [ ] 4.2 Implement `AuthService` using `supabase-swift` configured with the
+- [x] 4.2 Implement `AuthService` using `supabase-swift` configured with the
       Furioke Supabase project URL and anon key
-- [ ] 4.3 Implement the `ASWebAuthenticationSession` sign-in flow targeting the
+- [x] 4.3 Implement the `ASWebAuthenticationSession` sign-in flow targeting the
       Supabase OAuth URL for Google, with `furioke://auth/callback` redirect
-- [ ] 4.4 Handle the OAuth callback: parse the URL fragment, extract tokens,
+- [x] 4.4 Handle the OAuth callback: parse the URL fragment, extract tokens,
       persist to Keychain, transition the app's root state to the signed-in
       surface
-- [ ] 4.5 Implement transparent refresh-on-expiry using `supabase-swift`'s
+- [x] 4.5 Implement transparent refresh-on-expiry using `supabase-swift`'s
       session refresh; on `invalid_grant`, clear Keychain and transition to
       sign-in
-- [ ] 4.6 Implement sign-out: clear Keychain, purge per-user SwiftData entities,
+- [x] 4.6 Implement sign-out: clear Keychain, purge per-user SwiftData entities,
       clear in-memory Spotify session, forget MusicKit authorization, transition
       to sign-in surface
 
