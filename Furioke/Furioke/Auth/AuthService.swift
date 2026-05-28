@@ -35,7 +35,7 @@ final class AuthService {
   /// Mutated only on the main actor (in `observeAuthState`); read in the
   /// nonisolated `deinit`, which runs after the last reference drops, so there is
   /// no concurrent access. `Task` is `Sendable`, so cancelling it is safe anywhere.
-  private nonisolated(unsafe) var authStateTask: Task<Void, Never>?
+  @ObservationIgnored private var authStateTask: Task<Void, Never>?
 
   init() {
     client = SupabaseClient(

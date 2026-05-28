@@ -8,7 +8,7 @@
 
 ## 2. Spotify Walking Skeleton
 
-- [ ] 2.1 Define the basic music types: provider, track, playback update, controls, and errors
+- [x] 2.1 Define `MusicTypes`: provider, track, playback update, controls, and errors
 - [ ] 2.2 Add `MusicState` and inject it through SwiftUI environment
 - [ ] 2.3 Make Spotify the only active provider for this milestone
 - [ ] 2.4 Connect Spotify with the iOS SDK
