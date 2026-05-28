@@ -13,14 +13,6 @@ CarPlay, SwiftData caches lyric bodies for offline reading, and SwiftUI's native
 `.glassEffect()` on iOS 26 is the actual Liquid Glass design language we have
 been hand-rolling in CSS.
 
-This proposal also resets the iOS rebuild. An earlier draft of `add-ios-app`
-shipped, plus two follow-up changes (`fix-ios-music-adapters` and
-`redesign-ios-with-liquid-glass`) that materially altered three decisions in
-that draft. Rather than carry a stack of three half-applied plans, this change
-consolidates all decisions to date into a single proposal and resets the
-implementation. The two follow-up change folders are removed; their decisions
-land here.
-
 ## What Changes
 
 - New SwiftUI iOS app, deployment target iOS 26+, distributed through the App
