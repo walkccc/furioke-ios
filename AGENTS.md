@@ -1,20 +1,32 @@
 # AGENTS.md
 
+## Core Principles
+
+- Never run `xcodebuild`!
+- Simplicity first.
+- Fix root causes, not symptoms.
+- Senior-level Swift 6 code only.
+- Zesty, minimal, modern design — theme tokens live in
+  `Shared/Enums/AppTheme.swift`.
+
 ## Bash command style
 
-Avoid compound shell commands that combine `cd`, `&&`, `;`, pipes, or output redirection.
+Avoid compound shell commands that combine `cd`, `&&`, `;`, pipes, or output
+redirection.
 
 Assume the session starts from the repo root.
 
 Prefer Claude Code's Read, Grep, and Glob tools for inspecting files.
 
-For Bash inspection, use separate simple commands instead of one compound command.
+For Bash inspection, use separate simple commands instead of one compound
+command.
 
 Good:
 
 - pwd
 - sed -n '1,60p' lib/api/with-auth.ts
-- grep -n "api.spotify.com\|/search\|q=\|type=track\|limit" lib/music/spotify-source.ts
+- grep -n "api.spotify.com\|/search\|q=\|type=track\|limit"
+  lib/music/spotify-source.ts
 - head -20 some-output-file
 
 Avoid:
@@ -39,15 +51,6 @@ State rules:
 - Data fetching via `@Query`
 - Dependencies via SwiftUI `Environment`
 
-## Core Principles
-
-- Simplicity first.
-- Fix root causes, not symptoms.
-- Senior-level Swift 6 code only.
-- Be token-efficient — never run `xcodebuild` (see [Builds](#builds)).
-- Zesty, minimal, modern design — theme tokens live in
-  `Shared/Enums/AppTheme.swift`.
-
 ### Web counterpart
 
 The web app lives at `../furioke`. You MAY read it when cross-referencing
@@ -58,8 +61,7 @@ only files relevant to the task, never a blind scan, and ask first if unsure.
 
 The iOS app mirrors the web's chrome-vs-content discipline using native iOS 26
 APIs (`.glassEffect()`, `GlassEffectContainer`, `tabViewBottomAccessory`,
-`matchedGeometryEffect`). The layer lives under
-`Furioke/Furioke/DesignSystem/`.
+`matchedGeometryEffect`). The layer lives under `Furioke/Furioke/DesignSystem/`.
 
 ### Layers
 
@@ -143,7 +145,8 @@ compiles the iOS target.
 
 ### When making changes
 
-- Read nearby files before editing (within the [access rules](#file-access-rules-critical)).
+- Read nearby files before editing (within the
+  [access rules](#file-access-rules-critical)).
 - Match existing project conventions.
 - Prefer small, safe changes.
 - Explain important architectural decisions briefly.

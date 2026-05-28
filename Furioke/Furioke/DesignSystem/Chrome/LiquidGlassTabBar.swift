@@ -8,13 +8,15 @@ enum AppTab: Hashable {
 
 // Three-tab native iOS 26 TabView. The Liquid Glass treatment of the bar
 // itself is provided by the system; this view is just the typed composition
-// root that names the three destinations.
+// root that names the three destinations and hosts the persistent mini-player
+// above the bar via `tabViewBottomAccessory`.
 
-struct LiquidGlassTabBar<Library: View, Search: View, Settings: View>: View {
+struct LiquidGlassTabBar<Library: View, Search: View, Settings: View, Accessory: View>: View {
   @Binding var selection: AppTab
   @ViewBuilder var library: () -> Library
   @ViewBuilder var search: () -> Search
   @ViewBuilder var settings: () -> Settings
+  @ViewBuilder var bottomAccessory: () -> Accessory
 
   var body: some View {
     TabView(selection: $selection) {
@@ -35,6 +37,9 @@ struct LiquidGlassTabBar<Library: View, Search: View, Settings: View>: View {
       } label: {
         Label("Settings", systemImage: "gearshape")
       }
+    }
+    .tabViewBottomAccessory {
+      bottomAccessory()
     }
   }
 }

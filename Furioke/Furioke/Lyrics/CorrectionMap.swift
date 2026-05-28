@@ -1,16 +1,16 @@
 import Foundation
 
 /// A reading-correction map layered over kuromoji output, ported from the web's
-/// `lib/lyrics/furigana-corrections.ts`. kuromoji + IPADIC gives a token's
+/// `lib/lyrics/reading-corrections.ts`. kuromoji + IPADIC gives a token's
 /// morphological reading, which is often not the sung reading for number+counter
 /// and jukujikun compounds (e.g. 二人 as ににん rather than ふたり). The bundled
 /// seed fixes known song-domain misreads for everyone; per-user overrides extend
 /// it and take precedence.
 ///
-/// Per-user overrides come from `OverrideEntity` (see [[ios-offline-cache]]),
-/// which lands in a later change. To avoid coupling the pipeline to a SwiftData
-/// model that does not exist yet, the caller loads those overrides and passes
-/// them in — mirroring the web's `setUserOverrides(map)` seam.
+/// Per-user overrides come from `OverrideEntity`, which lands in a later change.
+/// To avoid coupling the pipeline to a SwiftData model that does not exist yet,
+/// the caller loads those overrides and passes them in — mirroring the web's
+/// `setUserOverrides(map)` seam.
 nonisolated struct CorrectionMap {
   struct Match: Equatable {
     let surface: String

@@ -1,22 +1,33 @@
 import Foundation
 
-nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable {
   case spotify
-  case appleMusic
-  case youtube
+  case appleMusic = "apple-music"
 
-  var id: String { rawValue }
+  var id: String {
+    rawValue
+  }
 
   var displayName: String {
     switch self {
     case .spotify: "Spotify"
     case .appleMusic: "Apple Music"
-    case .youtube: "YouTube"
+    }
+  }
+
+  /// Reconstruct a playback URI from a stored provider track id. Saved songs (and
+  /// the Supabase `songs` table they mirror) persist only `(provider,
+  /// providerTrackID)` and let the adapter resolve artwork, so the URI is rebuilt
+  /// here when replaying a track from the Library.
+  func playbackURI(forTrackID id: String) -> String {
+    switch self {
+    case .spotify: "spotify:track:\(id)"
+    case .appleMusic: id
     }
   }
 }
 
-nonisolated struct MusicTrack: Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct MusicTrack: Identifiable, Equatable, Hashable {
   let provider: MusicProvider
   let providerTrackID: String
   let uri: String
@@ -41,12 +52,12 @@ nonisolated struct MusicTrack: Identifiable, Equatable, Hashable, Sendable {
   }
 }
 
-nonisolated struct MusicAccount: Equatable, Sendable {
+nonisolated struct MusicAccount: Equatable {
   let provider: MusicProvider
   let displayName: String
 }
 
-nonisolated enum MusicControl: Equatable, Sendable {
+nonisolated enum MusicControl: Equatable {
   case play
   case pause
   case previous
@@ -54,7 +65,7 @@ nonisolated enum MusicControl: Equatable, Sendable {
   case seek(positionMs: Int)
 }
 
-nonisolated enum MusicError: Error, Equatable, Sendable {
+nonisolated enum MusicError: Error, Equatable {
   case notInstalled
   case userCancelled
   case handshakeTimeout
@@ -100,7 +111,7 @@ nonisolated enum MusicError: Error, Equatable, Sendable {
   }
 }
 
-nonisolated enum MusicConnection: Equatable, Sendable {
+nonisolated enum MusicConnection: Equatable {
   case disconnected
   case connecting(MusicProvider)
   case connected(MusicProvider)
@@ -117,7 +128,7 @@ nonisolated enum MusicConnection: Equatable, Sendable {
   }
 }
 
-nonisolated struct MusicUpdate: Equatable, Sendable {
+nonisolated struct MusicUpdate: Equatable {
   let provider: MusicProvider
   let connection: MusicConnection
   let track: MusicTrack?
@@ -128,7 +139,7 @@ nonisolated struct MusicUpdate: Equatable, Sendable {
   let playbackError: MusicError?
 }
 
-nonisolated enum PlaybackSource: Equatable, Sendable {
+nonisolated enum PlaybackSource: Equatable {
   case userInitiated(MusicTrack)
   case observed(MusicTrack)
 
@@ -138,13 +149,14 @@ nonisolated enum PlaybackSource: Equatable, Sendable {
       track
     }
   }
+}
 
-  var labelPrefix: String {
-    switch self {
-    case .userInitiated: "Playing on"
-    case .observed: "Companion"
-    }
-  }
+/// Catalog-search tuning shared across the playback layer and provider adapters.
+nonisolated enum MusicSearch {
+  /// Default `/v1/search` page size. Spotify rejects larger page sizes for the
+  /// App-Remote access token (`400 Invalid limit`), so both the default catalog
+  /// search and artwork resolution cap at this conservative value.
+  static let defaultLimit = 10
 }
 
 @MainActor

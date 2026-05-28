@@ -4,7 +4,7 @@ import Supabase
 
 /// Owns the iOS Supabase session: Google OAuth sign-in via
 /// `ASWebAuthenticationSession`, Keychain-backed persistence, transparent refresh,
-/// and sign-out. Injected at the root; `RootView` (section 6) renders sign-in vs.
+/// and sign-out. Injected at the root; `RootView` renders sign-in vs.
 /// the tab bar from `state`. Sessions are independent of the web app — sign-out
 /// uses local scope so the user's browser session is untouched.
 @Observable
@@ -23,11 +23,11 @@ final class AuthService {
   private(set) var lastSignInError: String?
 
   /// Cross-subsystem teardown for explicit sign-out: purge per-user SwiftData
-  /// entities ([[ios-offline-cache]]), clear the in-memory Spotify session, and
-  /// forget MusicKit authorization ([[ios-music-source]]). The composition root
-  /// wires this once those subsystems land (sections 5 & 11); auth must not import
-  /// them. Not invoked on forced sign-out from a refresh failure — that only
-  /// clears credentials, leaving cached data for the same user's next sign-in.
+  /// entities, clear the in-memory Spotify session, and forget MusicKit
+  /// authorization. The composition root wires this once those subsystems land;
+  /// auth must not import them. Not invoked on forced sign-out from a refresh
+  /// failure — that only clears credentials, leaving cached data for the same
+  /// user's next sign-in.
   var onSignOutCleanup: (@MainActor () async -> Void)?
 
   let client: SupabaseClient
