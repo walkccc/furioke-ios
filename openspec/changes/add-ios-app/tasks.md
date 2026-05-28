@@ -1,17 +1,18 @@
 ## 1. iOS project scaffolding
 
-- [ ] 1.1 Create `ios/Furioke.xcodeproj` via Xcode New Project (SwiftUI App
+- [x] 1.1 Create `ios/Furioke.xcodeproj` via Xcode New Project (SwiftUI App
       template, iOS 26 deployment target, iPhone idiom only, language Swift,
       storage SwiftData)
-- [ ] 1.2 Configure Apple Developer team, bundle identifier
+- [x] 1.2 Configure Apple Developer team, bundle identifier
       (`com.magicparklabs.Furioke`), `CFBundleDisplayName = "furioke"`,
       provisioning profile, and code-signing in Xcode project settings
-- [ ] 1.3 Add `URL Types` entry for the `furioke://` custom scheme in Info.plist
-- [ ] 1.4 Add background modes capability for `audio` playback (remote
+- [x] 1.3 Add `URL Types` entry for the `furioke://` custom scheme in Info.plist
+- [x] 1.4 Add background modes capability for `audio` playback (remote
       notifications deferred to a later change)
-- [ ] 1.5 Add Apple Music capability (MusicKit) and the Spotify iOS SDK as an
-      SPM dependency in Xcode
-- [ ] 1.6 Add `supabase-swift` as an SPM dependency
+- [x] 1.5 Enable MusicKit on the App ID (developer.apple.com → Identifiers →
+      App Services → MusicKit), add `NSAppleMusicUsageDescription` to
+      Info.plist, and add the Spotify iOS SDK XCFramework
+- [x] 1.6 Add `supabase-swift` as an SPM dependency
 
 ## 2. iOS design system (Tokens → Primitives → Chrome)
 
