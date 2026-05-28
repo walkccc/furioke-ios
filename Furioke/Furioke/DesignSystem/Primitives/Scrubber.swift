@@ -66,13 +66,13 @@ struct Scrubber: View {
   }
 
   private func formattedTime(ms: Int) -> String {
-    let total: Int = max(ms, 0) / 1000
+    let total: Int = max(ms, 0) / 1_000
     return String(format: "%d:%02d", total / 60, total % 60)
   }
 
   private func fireHapticIfCrossingDetent(fraction: Double) {
     let detents: [Int] = [25, 50, 75]
-    let percent: Int = Int(fraction * 100)
+    let percent: Int = .init(fraction * 100)
     if let hit = detents.first(where: { abs(percent - $0) <= 1 }) {
       if lastDetent != hit {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

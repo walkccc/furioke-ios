@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		691D53102FC7D83600BBA522 /* SpotifyiOS.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 691D530D2FC7D7FB00BBA522 /* SpotifyiOS.xcframework */; };
 		691D53112FC7D83600BBA522 /* SpotifyiOS.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 691D530D2FC7D7FB00BBA522 /* SpotifyiOS.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		691D578E2FC8783200BBA522 /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 691D578D2FC8783200BBA522 /* Supabase */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -56,6 +57,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				691D578E2FC8783200BBA522 /* Supabase in Frameworks */,
 				691D53102FC7D83600BBA522 /* SpotifyiOS.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -109,6 +111,7 @@
 			);
 			name = Furioke;
 			packageProductDependencies = (
+				691D578D2FC8783200BBA522 /* Supabase */,
 			);
 			productName = Furioke;
 			productReference = 693FABAF2FC7CBA30034105D /* Furioke.app */;
@@ -139,6 +142,9 @@
 			);
 			mainGroup = 693FABA62FC7CBA30034105D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				691D578C2FC8782C00BBA522 /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 693FABB02FC7CBA30034105D /* Products */;
 			projectDirPath = "";
@@ -227,6 +233,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
@@ -285,6 +292,7 @@
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				NEW_SETTING = "";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				VALIDATE_PRODUCT = YES;
@@ -390,6 +398,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		691D578C2FC8782C00BBA522 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		691D578D2FC8783200BBA522 /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 691D578C2FC8782C00BBA522 /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 693FABA72FC7CBA30034105D /* Project object */;
 }

@@ -11,7 +11,7 @@ import SwiftUI
 
 struct AppShell: View {
   @State private var selection: AppTab = .library
-  @State private var expansion: MiniPlayerExpansion = MiniPlayerExpansion()
+  @State private var expansion: MiniPlayerExpansion = .init()
   @Namespace private var playerNamespace
 
   var body: some View {

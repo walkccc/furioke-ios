@@ -56,7 +56,7 @@ struct NowPlayingContent: View {
 
   @ViewBuilder
   private var artwork: some View {
-    let shape: RoundedRectangle = RoundedRectangle(cornerRadius: Radii.xl, style: .continuous)
+    let shape: RoundedRectangle = .init(cornerRadius: Radii.xl, style: .continuous)
     AsyncImage(url: artworkURL) { image in
       image.resizable().scaledToFill()
     } placeholder: {

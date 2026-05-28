@@ -16,8 +16,13 @@ final class MiniPlayerExpansion {
 
   private(set) var phase: Phase = .collapsed
 
-  var isExpanded: Bool { phase == .expanded }
-  var isSheetPresented: Bool { phase == .expanding || phase == .expanded }
+  var isExpanded: Bool {
+    phase == .expanded
+  }
+
+  var isSheetPresented: Bool {
+    phase == .expanding || phase == .expanded
+  }
 
   func requestExpand() {
     guard phase == .collapsed else { return }

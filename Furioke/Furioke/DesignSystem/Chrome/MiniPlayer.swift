@@ -36,7 +36,7 @@ struct MiniPlayer: View {
 
   @ViewBuilder
   private var artwork: some View {
-    let shape: RoundedRectangle = RoundedRectangle(cornerRadius: Radii.sm, style: .continuous)
+    let shape: RoundedRectangle = .init(cornerRadius: Radii.sm, style: .continuous)
     AsyncImage(url: artworkURL) { image in
       image.resizable().scaledToFill()
     } placeholder: {
