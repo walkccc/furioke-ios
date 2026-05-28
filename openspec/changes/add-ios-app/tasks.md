@@ -1,6 +1,6 @@
 ## 1. iOS project scaffolding
 
-- [x] 1.1 Create `ios/Furioke.xcodeproj` via Xcode New Project (SwiftUI App
+- [x] 1.1 Create `Furioke.xcodeproj` via Xcode New Project (SwiftUI App
       template, iOS 26 deployment target, iPhone idiom only, language Swift,
       storage SwiftData)
 - [x] 1.2 Configure Apple Developer team, bundle identifier
@@ -21,56 +21,56 @@ independently shippable and produces no visual change on its own.
 
 ### 2a — Tokens
 
-- [ ] 2a.1 Create `Furioke/Furioke/DesignSystem/Tokens/`
-- [ ] 2a.2 `Radii.swift` — `.sm=8 .md=12 .lg=16 .xl=20 .xxl=28`
-- [ ] 2a.3 `Spacing.swift` — 4-pt grid `.xs=4 .s=8 .m=12 .l=16 .xl=24 .xxl=32`
-- [ ] 2a.4 `Materials.swift` — split into glass roles (`chromeGlass`,
+- [x] 2a.1 Create `Furioke/Furioke/DesignSystem/Tokens/`
+- [x] 2a.2 `Radii.swift` — `.sm=8 .md=12 .lg=16 .xl=20 .xxl=28`
+- [x] 2a.3 `Spacing.swift` — 4-pt grid `.xs=4 .s=8 .m=12 .l=16 .xl=24 .xxl=32`
+- [x] 2a.4 `Materials.swift` — split into glass roles (`chromeGlass`,
       `capsuleTier`, `controlTier`) and opaque roles (`contentSurface`,
       `popoverSurface`)
-- [ ] 2a.5 `Motion.swift` — `.pop`, `.ease`, `.sheet` spring presets only
-- [ ] 2a.6 `Typography.swift` — `pageTitle`, `sectionTitle`, `body`, `metadata`,
+- [x] 2a.5 `Motion.swift` — `.pop`, `.ease`, `.sheet` spring presets only
+- [x] 2a.6 `Typography.swift` — `pageTitle`, `sectionTitle`, `body`, `metadata`,
       `lyricActive`, `lyricRest`, `furigana`, all built on relative SwiftUI text
       styles so they scale with Dynamic Type
 
 ### 2b — Primitives
 
-- [ ] 2b.1 `Surface.swift` — opaque content card; type-level constraint that
+- [x] 2b.1 `Surface.swift` — opaque content card; type-level constraint that
       accepts only opaque `Material` tokens
-- [ ] 2b.2 `GlassChrome.swift` — `.glassEffect()` wrapper; type-level constraint
+- [x] 2b.2 `GlassChrome.swift` — `.glassEffect()` wrapper; type-level constraint
       that accepts only `Glass` role tokens (misuse fails to compile)
-- [ ] 2b.3 `GlassCapsule.swift` — pill (provider chip, device chip)
-- [ ] 2b.4 `RowItem.swift` — library/search row: artwork + 2-line + trailing
-- [ ] 2b.5 `TransportButton.swift` — `.bounce` SymbolEffect on tap, `.scale`
+- [x] 2b.3 `GlassCapsule.swift` — pill (provider chip, device chip)
+- [x] 2b.4 `RowItem.swift` — library/search row: artwork + 2-line + trailing
+- [x] 2b.5 `TransportButton.swift` — `.bounce` SymbolEffect on tap, `.scale`
       while held; `accessibilityLabel` required by construction
-- [ ] 2b.6 `Scrubber.swift` — position bar + seek gesture + `.light` haptic
+- [x] 2b.6 `Scrubber.swift` — position bar + seek gesture + `.light` haptic
       detents at the 25 / 50 / 75% points
-- [ ] 2b.7 `SectionHeader.swift` — title + optional trailing action
-- [ ] 2b.8 `EmptyState.swift` — icon + title + body + optional action
+- [x] 2b.7 `SectionHeader.swift` — title + optional trailing action
+- [x] 2b.8 `EmptyState.swift` — icon + title + body + optional action
 
 ### 2c — Chrome
 
-- [ ] 2c.1 `LiquidGlassTabBar.swift` — three-tab `TabView` over Library / Search
+- [x] 2c.1 `LiquidGlassTabBar.swift` — three-tab `TabView` over Library / Search
       / Settings, wearing `Materials.chromeGlass`
-- [ ] 2c.2 `MiniPlayer.swift` — collapsed-state row hosted by
+- [x] 2c.2 `MiniPlayer.swift` — collapsed-state row hosted by
       `tabViewBottomAccessory`; reads from `MusicState`
-- [ ] 2c.3 `NowPlayingSheet.swift` — full-height sheet container with glass
+- [x] 2c.3 `NowPlayingSheet.swift` — full-height sheet container with glass
       header
-- [ ] 2c.4 `NowPlayingContent.swift` — the inner body rendered inside the sheet
+- [x] 2c.4 `NowPlayingContent.swift` — the inner body rendered inside the sheet
       (header chip, artwork, source chip, lyric column, scrubber, transport row)
-- [ ] 2c.5 `MiniPlayerExpansion.swift` — observable expansion state machine
+- [x] 2c.5 `MiniPlayerExpansion.swift` — observable expansion state machine
       `collapsed → expanding → expanded → collapsing → collapsed`; ignores
       inputs in transitional phases
-- [ ] 2c.6 `App/AppShell.swift` — composition root owning the
+- [x] 2c.6 `App/AppShell.swift` — composition root owning the
       `matchedGeometryEffect` namespace for the artwork / title / artist morph
       between `MiniPlayer` and `NowPlayingSheet`
 
 ## 3. iOS local furigana pipeline (kuromoji.js via JavaScriptCore)
 
 - [ ] 3.1 Copy `kuromoji.umd.js` from `node_modules/kuromoji/build/` into
-      `ios/Furioke/Resources/Kuromoji/` and add as a bundle resource (Copy
+      `Furioke/Resources/Kuromoji/` and add as a bundle resource (Copy
       Bundle Resources build phase)
 - [ ] 3.2 Copy the kuromoji dict files from `public/dict/` into
-      `ios/Furioke/Resources/KuromojiDict/` and add as bundle resources
+      `Furioke/Resources/KuromojiDict/` and add as bundle resources
 - [ ] 3.3 Confirm `lib/lyrics/seed.json` is the shared source of truth for the
       built-in correction map (web app already imports it; the iOS bundle build
       phase consumes the same file)
