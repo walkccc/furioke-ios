@@ -1,0 +1,39 @@
+# --- General ---
+
+--swift-version 0.58.7
+
+# --- Indentation & Layout ---
+
+--indent 2
+--maxwidth 100
+--tabwidth 2
+--trimwhitespace always
+--insert-lines enabled
+--linebreaks lf
+
+# --- Standard Rules ---
+
+--allman false
+--elseposition same-line
+--emptybraces no-space
+--semicolons never
+--commas always
+
+# --- Organization & Naming ---
+
+--importgrouping alpha
+--stripunusedargs always
+--redundant-type explicit
+--redundant-async always
+
+# --- Math & Literals ---
+
+--binarygrouping 4,4
+--decimalgrouping 3,3
+--hexgrouping 4,4
+--ranges spaced
+
+# --- Comments ---
+
+--comments indent
+--doccomments preserve
