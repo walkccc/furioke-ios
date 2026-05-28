@@ -421,6 +421,39 @@ to one update per active-line change, not per progress tick.
 - Springboard display name: `furioke` (lowercase, via `CFBundleDisplayName`,
   matching web brand voice).
 
+### D15 — Delivery sequence: a Spotify walking skeleton first, then thicken, then add providers
+
+The build order is **vertical, not horizontal**. Rather than completing each
+layer (the whole `MusicSource` contract, then all three adapters, then the
+shell, then the feature surfaces) before moving on, **Milestone 1** cuts a thin
+slice through every layer to deliver one working end-to-end Spotify loop —
+sign in → search → play → furigana lyrics — reusing the already-built design
+system (§2), furigana pipeline (§3), and auth (§4). Only after that loop runs on
+device does **Milestone 2** thicken: Spotify hardening (connect state machine,
+1.5s grace window, 8s handshake timeout, 401-refresh, full error vocabulary),
+the full three-tab shell + mini-player + matched-geometry morph, Library, and
+the NowPlaying polish (scrubber, queue, companion mode, translation, backdrop).
+**Milestone 3** (Apple Music) and **Milestone 4** (YouTube) then drop in behind
+the `MusicSource` seam without touching feature code.
+
+The contract is built **lean** for M1 (only the methods Spotify needs, only the
+three error cases the happy path produces) and grown as later providers and
+phases demand. This means the abstraction is extracted against a real second
+implementor (Apple Music in M3) rather than designed up front.
+
+**Why it wins:** the loop is validated end-to-end early; the happy path is
+provable before edge-case hardening; each provider is independently testable on
+device, one at a time.
+
+**Trade-off accepted:** the NowPlaying and shell files are touched twice (thin in
+M1, thickened in M2) — accepted in exchange for an early, working, testable loop.
+
+**Alternative considered:** horizontal layering (the original §5–§9 order, which
+finished the full music-source layer, then the shell, then each feature). Rejected
+because nothing is testable until the whole stack is built, and it front-loaded a
+14-case error vocabulary and the complete adapter contract before a single
+provider ran.
+
 ## Risks / Trade-offs
 
 - **[Risk]** `JavaScriptCore` memory footprint while the tokenizer is alive —
@@ -498,19 +531,29 @@ against the existing `/api/lyrics`, `/api/translate`, `/api/youtube/*`, and
 `/api/lyric-anchors` contracts plus direct `api.spotify.com` calls. The web app
 is unchanged.
 
-Sequence:
+Sequence (vertical milestones — see D15):
 
 1. Set up the Xcode project (manual step — Apple Developer account, bundle ID,
-   signing).
+   signing). _[done]_
 2. Land the iOS design system layer (Tokens → Primitives → Chrome) before any
-   feature view consumes it.
+   feature view consumes it. _[done]_
 3. Land the iOS local furigana pipeline (`KuromojiBridge`, `LineHashSwift`, seed
-   map).
-4. Land auth, music sources, then NowPlaying (via the design system) — the spine
-   of the product.
-5. Lock Screen / CarPlay, Search, Library, offline cache, corrections — in any
-   order, mostly independent.
-6. App Store submission.
+   map). _[done]_
+4. Land auth (Supabase sign-in, Keychain, refresh, sign-out). _[done]_
+5. **Milestone 1 — Spotify walking skeleton:** a thin slice through the seam,
+   the Spotify adapter happy path, a minimal shell, minimal Search, and minimal
+   NowPlaying — the whole loop (sign in → search → play → furigana lyrics),
+   testable on device.
+6. **Milestone 2 — thicken:** Spotify hardening; the full three-tab shell +
+   mini-player + matched-geometry morph; provider selection; Library; Search
+   polish; NowPlaying polish.
+7. **Milestone 3 — Apple Music** and **Milestone 4 — YouTube** verticals, each
+   dropping in behind the `MusicSource` seam and testable independently.
+8. Lock Screen / Control Center / CarPlay, offline cache, furigana corrections,
+   motion + accessibility polish — mostly independent. (The offline-cache
+   SwiftData schema underpins M2's Library and translation work; pull it forward
+   when those land.)
+9. App Store submission.
 
 App Store binaries are append-only: a regression ships as a follow-up version.
 There is no rollback in the traditional sense; the closest analog is "remove

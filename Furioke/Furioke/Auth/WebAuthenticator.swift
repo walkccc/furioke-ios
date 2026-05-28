@@ -39,9 +39,18 @@ final class WebAuthenticator: NSObject, ASWebAuthenticationPresentationContextPr
   }
 
   func presentationAnchor(for _: ASWebAuthenticationSession) -> ASPresentationAnchor {
-    let scene = UIApplication.shared.connectedScenes
+    let windowScenes = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
-      .first { $0.activationState == .foregroundActive }
-    return scene?.keyWindow ?? ASPresentationAnchor()
+    let scene = windowScenes.first { $0.activationState == .foregroundActive }
+      ?? windowScenes.first
+    guard let scene else {
+      // ASWebAuthenticationSession only requests an anchor while presenting, which
+      // requires a live window scene; the absence of one is a programmer error, not
+      // a runtime condition to paper over with a deprecated empty `UIWindow()`.
+      preconditionFailure("No window scene available to anchor the auth session")
+    }
+    // Prefer the existing key window; if none is up yet, anchor a fresh window to
+    // the scene rather than the deprecated `UIWindow()` (removed in iOS 26).
+    return scene.keyWindow ?? ASPresentationAnchor(windowScene: scene)
   }
 }

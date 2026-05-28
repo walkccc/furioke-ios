@@ -29,5 +29,11 @@
 	<string>https://hrzxsnlqhzdlxcgaboqf.supabase.co</string>
 	<key>SUPABASE_ANON_KEY</key>
 	<string>sb_publishable_AgvsbXxiLD0JnteiDzaM-g_lSwU6s2c</string>
+	<key>SPOTIFY_CLIENT_ID</key>
+	<string>446d2b788c074a4fac98ac9a57e95a7e</string>
+	<key>SPOTIFY_REDIRECT_URL</key>
+	<string>furioke://spotify-callback</string>
+	<key>FURIOKE_API_BASE_URL</key>
+	<string>https://furioke.com</string>
 </dict>
 </plist>

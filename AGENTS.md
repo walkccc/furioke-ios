@@ -1,5 +1,29 @@
 # AGENTS.md
 
+## Bash command style
+
+Avoid compound shell commands that combine `cd`, `&&`, `;`, pipes, or output redirection.
+
+Assume the session starts from the repo root.
+
+Prefer Claude Code's Read, Grep, and Glob tools for inspecting files.
+
+For Bash inspection, use separate simple commands instead of one compound command.
+
+Good:
+
+- pwd
+- sed -n '1,60p' lib/api/with-auth.ts
+- grep -n "api.spotify.com\|/search\|q=\|type=track\|limit" lib/music/spotify-source.ts
+- head -20 some-output-file
+
+Avoid:
+
+- cd /path && command
+- command 2>/dev/null
+- command1; command2
+- command1 | command2
+
 ## Tech Stack
 
 - Swift 6.0 (Strict Concurrency)
@@ -23,24 +47,6 @@ State rules:
 - Be token-efficient — never run `xcodebuild` (see [Builds](#builds)).
 - Zesty, minimal, modern design — theme tokens live in
   `Shared/Enums/AppTheme.swift`.
-
-## File Access Rules (Critical)
-
-- ❌ Do NOT scan the repository.
-- ❌ Do NOT read files unless explicitly listed by the user.
-- ❌ Do NOT infer behavior from unrelated files.
-- ✅ If needed files are missing, ASK before reading.
-
-Default assumption:
-
-> All files not explicitly named are irrelevant.
-
-Never read unless explicitly requested:
-
-- `Shared/`
-- `Furioke/Views/`
-- `Furioke/Assets.xcassets/`
-- `Furioke.xcodeproj/`
 
 ### Web counterpart
 
