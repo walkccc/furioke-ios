@@ -1,0 +1,11 @@
+.DS_Store
+.build/
+Packages/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.netrc
+
+# Xcode user state
+*.xcuserstate
+xcuserdata/
