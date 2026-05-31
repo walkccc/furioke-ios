@@ -4,13 +4,12 @@ import SwiftUI
 /// from Settings. Lists each `kanji → reading` the user has corrected during
 /// playback with a sync badge; supports search, swipe-to-delete, and tap-to-edit
 /// (reusing `ReadingEditorCard`). Only the user's own overrides appear — the
-/// bundled `seed.json` corrections are part of the pipeline baseline and never
+/// bundled `seed.json` corrections are part of the annotator baseline and never
 /// surface here. Edits and deletes re-annotate lyrics on the next song load, not
 /// live.
 struct ReadingOverridesView: View {
   @Environment(ReadingOverridesState.self) private var state
 
-  @State private var query = ""
   /// The override currently open in the reading editor overlay, or nil when closed.
   @State private var editing: ReadingOverride?
 
@@ -44,7 +43,7 @@ struct ReadingOverridesView: View {
 
   private var overridesList: some View {
     List {
-      ForEach(filtered) { override in
+      ForEach(state.rows) { override in
         Button {
           withAnimation(Motion.pop) { editing = override }
         } label: {
@@ -60,7 +59,6 @@ struct ReadingOverridesView: View {
         }
       }
     }
-    .searchable(text: $query, prompt: "Search kanji or reading")
   }
 
   /// One override row: the corrected reading over its surface, plus a sync badge.
@@ -119,16 +117,6 @@ struct ReadingOverridesView: View {
         .padding(.bottom, Spacing.l)
         .transition(.move(edge: .bottom).combined(with: .opacity))
       }
-    }
-  }
-
-  /// Search filters on either side of the `surface → reading` pair.
-  private var filtered: [ReadingOverride] {
-    let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmed.isEmpty else { return state.rows }
-    return state.rows.filter {
-      $0.surface.localizedCaseInsensitiveContains(trimmed)
-        || $0.reading.localizedCaseInsensitiveContains(trimmed)
     }
   }
 }

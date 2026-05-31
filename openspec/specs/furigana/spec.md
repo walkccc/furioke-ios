@@ -5,7 +5,7 @@ bundling `kuromoji.umd.js` and its dictionary as resources and running the
 tokenizer inside Apple's JavaScriptCore via a Swift bridge. A pure-Swift
 line-hash algorithm reproduces the web's `lib/lyrics/line-hash.ts` output
 byte-for-byte, and a correction map combines a shared `lib/lyrics/seed.json`
-seed with the user's personal overrides to fix readings. An in-memory pipeline
+seed with the user's personal overrides to fix readings. An in-memory annotator
 turns a raw LRC body plus that correction map into annotated lines, re-running
 deterministically whenever the override map changes.
 
@@ -114,7 +114,7 @@ clients SHALL import it without redefining its contents.
 
 - **WHEN** the repository is inspected
 - **THEN** `lib/lyrics/seed.json` exists at the repo root and is referenced both
-  by the web app's furigana pipeline and by the iOS Xcode "Copy Bundle
+  by the web app's furigana annotator and by the iOS Xcode "Copy Bundle
   Resources" build phase; no second copy of the seed exists in `ios/`
 
 #### Scenario: Seed correction applies without user setup
@@ -150,9 +150,9 @@ emits it as one token or splits it.
 - **WHEN** an annotation pass runs over a kanji token no map entry covers
 - **THEN** that token keeps the reading kuromoji produced
 
-### Requirement: Pipeline produces annotated lines in memory only
+### Requirement: Annotator produces annotated lines in memory only
 
-The `FuriganaPipeline` SHALL accept a raw LRC body and a `CorrectionMap` and
+The `FuriganaAnnotator` SHALL accept a raw LRC body and a `CorrectionMap` and
 SHALL return an `[AnnotatedLine]` value carrying the surface, reading per kanji
 token, and `lineHash` per line. The annotated value SHALL live only in memory
 and SHALL NOT be persisted to SwiftData (the raw LRC body is the persisted
@@ -160,19 +160,19 @@ form).
 
 #### Scenario: Annotation is in-memory only
 
-- **WHEN** the pipeline produces an `[AnnotatedLine]` for a song
+- **WHEN** the annotator produces an `[AnnotatedLine]` for a song
 - **THEN** the value is held in a SwiftUI view-model property in memory; no
   SwiftData write occurs for tokenized output
 
-#### Scenario: Pipeline is deterministic
+#### Scenario: Annotator is deterministic
 
-- **WHEN** the pipeline is run twice on the same `(bodyText, CorrectionMap)`
+- **WHEN** the annotator is run twice on the same `(bodyText, CorrectionMap)`
   inputs
 - **THEN** the two `[AnnotatedLine]` outputs are equal
 
-### Requirement: Pipeline re-runs on override changes
+### Requirement: Annotator re-runs on override changes
 
-The Now Playing surface SHALL re-run the pipeline against the cached raw LRC
+The Now Playing surface SHALL re-run the annotator against the cached raw LRC
 body whenever the user's override map changes (an inline editor confirm or a
 sync-down from Supabase). The re-run SHALL produce a new `[AnnotatedLine]` value
 that the view re-renders against without a `/api/lyrics` round-trip.
@@ -182,30 +182,65 @@ that the view re-renders against without a `/api/lyrics` round-trip.
 - **WHEN** the override map changes from a sync-down of Supabase
   `reading_overrides`
 - **THEN** the `CorrectionMap` is rebuilt with the synced overrides, the
-  pipeline re-runs over the cached body, and the rendered lyrics reflect the new
-  readings, with no `/api/lyrics` call
+  annotator re-runs over the cached body, and the rendered lyrics reflect the
+  new readings, with no `/api/lyrics` call
 
 ### Requirement: Long-press a kanji opens the reading editor
 
 The Now Playing surface SHALL open a reading editor when the user long-presses
-on a kanji-bearing token in any lyric line. The editor SHALL be presented as a
+on a saveable content word in any lyric line. The editor SHALL be presented as a
 focus overlay over the lyric surface: the lyric column dims and blurs behind a
 dimming scrim, and the editor floats above it as a glass card that echoes the
-targeted kanji surface and exposes a focused text field pre-filled with the
-current reading. The targeted token MAY give a brief press-down response and a
-light haptic when the long-press fires. A short tap on a kanji SHALL retain its
-existing line-tap-to-seek behavior; the long-press gesture SHALL NOT be
-triggered by short taps, and only kanji-bearing tokens (those carrying a
-reading) SHALL be editable. The editor SHALL be dismissible via the system
-keyboard's done action, an explicit cancel control, or a tap on the dimming
-scrim outside the card.
+word's surface and exposes a focused text field pre-filled with the current
+reading.
+
+A word the tokenizer splits into several ruby cells (the kanji run plus its
+okurigana — 変 + わって, 置 + き + 忘 + れ) SHALL behave as a single interactive
+unit: the whole word is one press target and one long-press gesture, keyed on
+its shared `wordSurface`. Pressing any cell of the word SHALL give the brief
+press-down response (and the light haptic when the long-press fires) across the
+_whole_ word, never just the touched cell, and SHALL open the editor for the
+whole word. A short tap anywhere on the word SHALL retain its existing
+line-tap-to-seek behavior; the long-press gesture SHALL NOT be triggered by
+short taps.
+
+Editability follows the word's part of speech, not whether it contains kanji:
+saveable content words (名詞・動詞・形容詞・副詞, kanji **or** kana —
+e.g. わかって) SHALL be editable, while particles, auxiliaries, and punctuation
+SHALL stay inert. The editor SHALL be dismissible via the system keyboard's done
+action, an explicit cancel control, or a tap on the dimming scrim outside the
+card.
+
+When the learner is signed in, the editor SHALL additionally present a **Save to
+flashcards** affordance, in the same lit-glass idiom as its "Remember this
+reading" toggle, that reflects whether the word is already in the deck and
+toggles its membership. Triggering it SHALL save the word — its surface,
+reading, and the song context (source title, source artist, and the source lyric
+line) supplied by `NowPlayingState` — into the flashcard deck, or remove it if
+already saved. The save affordance SHALL be independent of the
+reading-correction action (saving neither requires nor records a correction) and
+SHALL NOT appear when signed out.
 
 #### Scenario: Long-press opens the editor
 
-- **WHEN** the user long-presses on a kanji word in a rendered line
+- **WHEN** the user long-presses on a saveable word in a rendered line
 - **THEN** the lyric column dims and a glass editor card appears, echoing the
-  kanji surface with a focused field pre-filled with the current hiragana
+  word's surface with a focused field pre-filled with the current hiragana
   reading
+
+#### Scenario: A multi-cell word presses as one unit
+
+- **WHEN** the user presses any cell of a word the tokenizer split across cells
+  (the 変 or the わって of 変わって)
+- **THEN** the entire word gives the press-down response together, and the
+  long-press opens the editor for the whole word's surface and reading — not the
+  single touched cell
+
+#### Scenario: A kana content word is editable
+
+- **WHEN** the user long-presses a saveable kana word (e.g. わかって) carrying
+  no kanji
+- **THEN** the reading editor opens for that word
 
 #### Scenario: Short tap still seeks
 
@@ -218,6 +253,19 @@ scrim outside the card.
   card
 - **THEN** the editor closes, no override is recorded, and the lyrics are
   unchanged
+
+#### Scenario: Saving a word to the deck from the editor
+
+- **WHEN** a signed-in user triggers "Save to flashcards" in the editor for a
+  word not yet in the deck
+- **THEN** the word is saved to the deck with its surface, reading, and the
+  current song's title, artist, and source line, and the affordance reflects the
+  saved state
+
+#### Scenario: Save affordance hidden when signed out
+
+- **WHEN** a signed-out user opens the reading editor
+- **THEN** no save-to-flashcards affordance is shown
 
 ### Requirement: Confirm rewrites the edited word
 

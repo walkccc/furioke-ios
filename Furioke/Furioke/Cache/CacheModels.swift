@@ -113,6 +113,116 @@ final class OverrideEntity {
   }
 }
 
+/// A per-user flashcard mirroring one row of the Supabase `flashcards` table.
+/// Keyed by `(userID, surface)` like `OverrideEntity`, and `source` carries the
+/// same three-state sync lifecycle: a `.local` optimistic write not yet
+/// uploaded, a `.synced` row the server has acknowledged, and a `.pendingDelete`
+/// tombstone awaiting a server `DELETE` (offline or failed) — never shown, never
+/// resurrected by a later pull. `updatedAt` mirrors the row's `updated_at` and is
+/// the last-writer-wins tiebreaker, defaulted to `.distantPast` so existing
+/// stores migrate without a schema step (any server row then wins the first
+/// reconcile, correct for rows that predate the field).
+@Model
+final class FlashcardEntity {
+  #Unique<FlashcardEntity>([\.userID, \.surface])
+  #Index<FlashcardEntity>([\.userID, \.surface])
+
+  var userID: String
+  var surface: String
+  var reading: String
+  // Per-language gloss maps stored as a JSON string (the same shape as the
+  // Supabase `jsonb` columns), keeping the SwiftData attribute type `String?`
+  // so no store migration is needed. A pre-migration plain-string value fails
+  // to decode and yields an empty map — exactly the intended drop-and-refetch.
+  var meaning: String?
+  var sourceTitle: String?
+  var sourceArtist: String?
+  var sourceLine: String?
+  var sourceLineTranslation: String?
+  var level: Int
+  var dueAt: Date
+  var createdAt: Date
+  var updatedAt: Date = Date.distantPast
+  var source: String
+
+  init(userID: String, card: Flashcard, source: Source) {
+    self.userID = userID
+    surface = card.surface
+    reading = card.reading
+    meaning = Self.encodeGloss(card.meaning)
+    sourceTitle = card.sourceTitle
+    sourceArtist = card.sourceArtist
+    sourceLine = card.sourceLine
+    sourceLineTranslation = Self.encodeGloss(card.sourceLineTranslation)
+    level = card.level
+    dueAt = card.dueAt
+    createdAt = card.createdAt
+    updatedAt = card.updatedAt
+    self.source = source.rawValue
+  }
+
+  /// Overwrite the schedule/content fields from a card (server reconcile or a
+  /// local re-grade); identity columns (`userID`, `surface`) are left untouched.
+  func apply(_ card: Flashcard) {
+    reading = card.reading
+    meaning = Self.encodeGloss(card.meaning)
+    sourceTitle = card.sourceTitle
+    sourceArtist = card.sourceArtist
+    sourceLine = card.sourceLine
+    sourceLineTranslation = Self.encodeGloss(card.sourceLineTranslation)
+    level = card.level
+    dueAt = card.dueAt
+    createdAt = card.createdAt
+    updatedAt = card.updatedAt
+  }
+
+  var asCard: Flashcard {
+    Flashcard(
+      surface: surface,
+      reading: reading,
+      meaning: Self.decodeGloss(meaning),
+      sourceTitle: sourceTitle,
+      sourceArtist: sourceArtist,
+      sourceLine: sourceLine,
+      sourceLineTranslation: Self.decodeGloss(sourceLineTranslation),
+      level: level,
+      dueAt: dueAt,
+      createdAt: createdAt,
+      updatedAt: updatedAt
+    )
+  }
+
+  /// Serialize a per-language gloss map to a JSON string for storage, or `nil`
+  /// when empty so the column stays null (matching a never-glossed row).
+  private static func encodeGloss(_ map: [String: String]) -> String? {
+    guard !map.isEmpty,
+          let data = try? JSONEncoder().encode(map),
+          let json = String(data: data, encoding: .utf8) else { return nil }
+    return json
+  }
+
+  /// Parse a stored gloss map; a null column or a pre-migration plain-string
+  /// value (not valid JSON object) decodes to an empty map, so the gloss is
+  /// refetched on demand.
+  private static func decodeGloss(_ json: String?) -> [String: String] {
+    guard let json, let data = json.data(using: .utf8),
+          let map = try? JSONDecoder().decode([String: String].self, from: data)
+    else { return [:] }
+    return map
+  }
+
+  enum Source: String {
+    /// Recorded on-device (save / re-grade), not yet persisted server-side.
+    case local
+    /// Acknowledged by the server (synced down, or a local write confirmed).
+    case synced
+    /// Deleted by the user but the server `DELETE` has not landed yet. Kept as a
+    /// tombstone so a `.synced` row isn't dropped locally only to resurrect on a
+    /// future server pull; the reconnect flush drains these, then removes the row.
+    case pendingDelete
+  }
+}
+
 /// A plain value type for one of the user's overrides crossing the cache ⇄ UI
 /// boundary, so the management screen never touches a live `@Model`. `isPendingSync`
 /// drives the row's sync badge (a `.local` row awaiting upload); `.pendingDelete`

@@ -4,7 +4,7 @@ import Foundation
 /// API (`GET /api/lyrics`), authenticated with the user's Supabase bearer token.
 /// The response shape mirrors the web's `app/api/lyrics/route.ts` exactly; the
 /// raw body is the persisted form and is fed straight
-/// into the local furigana pipeline.
+/// into the local furigana annotator.
 struct LyricsService {
   private let auth: AuthService
   private let baseURL: URL

@@ -30,7 +30,7 @@ support read-time lookup in the access layer.
 
 The annotated form of the lyrics (kuromoji output + correction map application)
 SHALL NOT be persisted. It is recomputed on every render via the local furigana
-pipeline from the cached raw LRC body plus the current `OverrideEntity` rows.
+annotator from the cached raw LRC body plus the current `OverrideEntity` rows.
 
 #### Scenario: Entities persist across launches
 
@@ -43,7 +43,7 @@ pipeline from the cached raw LRC body plus the current `OverrideEntity` rows.
 
 - **WHEN** the SwiftData store is inspected
 - **THEN** there is no entity carrying tokenized, hashed, or otherwise annotated
-  lyric output; the annotated form lives only in memory after the pipeline runs
+  lyric output; the annotated form lives only in memory after the annotator runs
   over `LyricBodyEntity.bodyText`
 
 ### Requirement: Read-through cache for lyric bodies
@@ -56,12 +56,12 @@ state and cache state for the requested track:
   be returned immediately AND a background revalidation request to `/api/lyrics`
   SHALL be issued. If the revalidation response differs from the cache, the
   cache SHALL be updated and the UI SHALL re-render (which re-runs the local
-  furigana pipeline against the new body).
+  furigana annotator against the new body).
 - **Online + cache miss or stale:** `/api/lyrics` SHALL be called, the raw LRC
-  body returned by the response SHALL be rendered (through the pipeline) and
+  body returned by the response SHALL be rendered (through the annotator) and
   written to `LyricBodyEntity`.
 - **Offline + cache hit:** the cached `bodyText` SHALL be returned and rendered
-  through the pipeline; no network request SHALL be attempted.
+  through the annotator; no network request SHALL be attempted.
 - **Offline + cache miss:** the surface SHALL render a "lyrics unavailable
   offline" state with no retry attempt; no error toast SHALL be shown.
 
@@ -77,14 +77,14 @@ state and cache state for the requested track:
 - **WHEN** the user opens a song whose `LyricBodyEntity` is not in the cache and
   the device is online
 - **THEN** `/api/lyrics` is called, the raw LRC body is rendered through the
-  furigana pipeline, and the body is written to `LyricBodyEntity` for that song
+  furigana annotator, and the body is written to `LyricBodyEntity` for that song
 
 #### Scenario: Offline cache hit, no network attempt
 
 - **WHEN** the user opens a song whose `LyricBodyEntity` is in the cache and the
   device is offline
-- **THEN** the cached body is rendered through the pipeline and no `/api/lyrics`
-  request is issued
+- **THEN** the cached body is rendered through the annotator and no
+  `/api/lyrics` request is issued
 
 #### Scenario: Offline cache miss is graceful
 
@@ -111,7 +111,7 @@ janitor SHALL evict entries older than 90 days on app launch to bound storage.
 
 - **WHEN** the user opens a song whose cached body is 35 days old and the device
   is offline
-- **THEN** the cached body is rendered through the pipeline (better stale than
+- **THEN** the cached body is rendered through the annotator (better stale than
   nothing while offline); no network attempt
 
 #### Scenario: Janitor evicts very old entries
@@ -149,7 +149,7 @@ edits (long-press inline editor) SHALL be written to `OverrideEntity` with
 Server-side overrides synced down SHALL be written with `source = synced`. On
 successful server write, the local row's `source` SHALL transition to `synced`.
 
-The local furigana pipeline SHALL read all `OverrideEntity` rows when
+The local furigana annotator SHALL read all `OverrideEntity` rows when
 constructing its `CorrectionMap` so an edit takes visible effect on the next
 render pass.
 
@@ -157,7 +157,7 @@ render pass.
 
 - **WHEN** the user records an override on Now Playing while offline
 - **THEN** the override is written to `OverrideEntity` with `source = local` and
-  applied to the on-screen rendering immediately (the furigana pipeline re-runs
+  applied to the on-screen rendering immediately (the furigana annotator re-runs
   with the updated map); an upload is queued for the next online tick
 
 #### Scenario: Queued upload syncs on reconnect

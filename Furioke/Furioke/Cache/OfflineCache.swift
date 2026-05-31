@@ -26,6 +26,7 @@ final class OfflineCache {
       LyricBodyEntity.self,
       OverrideEntity.self,
       TranslationEntity.self,
+      FlashcardEntity.self,
     ])
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
     do {
@@ -170,7 +171,7 @@ final class OfflineCache {
   // MARK: Overrides
 
   /// All of a user's overrides as a `surface → reading` map, for the furigana
-  /// pipeline's `CorrectionMap`. Rows tombstoned for deletion (`.pendingDelete`)
+  /// annotator's `CorrectionMap`. Rows tombstoned for deletion (`.pendingDelete`)
   /// are excluded so a deleted reading stops annotating on the next song load.
   func overrides(forUserID userID: String) -> [String: String] {
     let deletedSource = OverrideEntity.Source.pendingDelete.rawValue
@@ -351,6 +352,159 @@ final class OfflineCache {
     return try? context.fetch(descriptor).first
   }
 
+  // MARK: Flashcards
+
+  /// The user's deck as value-type cards, most-recently-updated first (matching
+  /// the server's `order by updated_at desc`). `.pendingDelete` tombstones are
+  /// excluded — they are on their way out and must not show in the deck.
+  func flashcards(forUserID userID: String) -> [Flashcard] {
+    let deletedSource = FlashcardEntity.Source.pendingDelete.rawValue
+    let descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID && $0.source != deletedSource },
+      sortBy: [SortDescriptor(\.updatedAt, order: .reverse)]
+    )
+    let rows = (try? context.fetch(descriptor)) ?? []
+    return rows.map(\.asCard)
+  }
+
+  /// Surfaces of every card in the deck, for the lyric surface's O(1) saved
+  /// marker and the capture toggle. Tombstoned rows are excluded so a removed
+  /// word stops being marked immediately.
+  func savedFlashcardSurfaces(forUserID userID: String) -> Set<String> {
+    let deletedSource = FlashcardEntity.Source.pendingDelete.rawValue
+    let descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID && $0.source != deletedSource }
+    )
+    let rows = (try? context.fetch(descriptor)) ?? []
+    return Set(rows.map(\.surface))
+  }
+
+  func flashcard(userID: String, surface: String) -> Flashcard? {
+    flashcardRow(userID: userID, surface: surface)?.asCard
+  }
+
+  /// Record (or update) a card locally. A capture / re-grade writes `source =
+  /// .local` immediately so the deck reflects it before any upload; a sync-down
+  /// from the server writes `source = .synced`. Re-saving a tombstoned surface
+  /// revives it (the user saved the word again), so `.pendingDelete` is cleared.
+  func upsertFlashcard(userID: String, card: Flashcard, source: FlashcardEntity.Source) {
+    if let existing = flashcardRow(userID: userID, surface: card.surface) {
+      existing.apply(card)
+      existing.source = source.rawValue
+    } else {
+      context.insert(FlashcardEntity(userID: userID, card: card, source: source))
+    }
+    try? context.save()
+  }
+
+  /// Delete a card the user removed. A row never uploaded (`.local`) is dropped
+  /// outright — the server never saw it. A `.synced` row is tombstoned
+  /// (`.pendingDelete`) so a later server pull can't resurrect it; the reconnect
+  /// flush issues the `DELETE` and then calls `removeFlashcard`.
+  func deleteFlashcard(userID: String, surface: String) {
+    guard let existing = flashcardRow(userID: userID, surface: surface) else { return }
+    if existing.source == FlashcardEntity.Source.local.rawValue {
+      context.delete(existing)
+    } else {
+      existing.source = FlashcardEntity.Source.pendingDelete.rawValue
+    }
+    try? context.save()
+  }
+
+  /// Hard-remove a card row locally with no tombstone. Called after a server
+  /// `DELETE` succeeds (online delete, or a drained `.pendingDelete`).
+  func removeFlashcard(userID: String, surface: String) {
+    guard let existing = flashcardRow(userID: userID, surface: surface) else { return }
+    context.delete(existing)
+    try? context.save()
+  }
+
+  /// Promote a local card to `synced` after the server acknowledges its upsert.
+  func markFlashcardSynced(userID: String, surface: String) {
+    guard let existing = flashcardRow(userID: userID, surface: surface) else { return }
+    existing.source = FlashcardEntity.Source.synced.rawValue
+    try? context.save()
+  }
+
+  /// Cards written on-device but not yet uploaded, for the reconnect flush.
+  func pendingFlashcardUpserts(forUserID userID: String) -> [Flashcard] {
+    let localSource = FlashcardEntity.Source.local.rawValue
+    let descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID && $0.source == localSource }
+    )
+    let rows = (try? context.fetch(descriptor)) ?? []
+    return rows.map(\.asCard)
+  }
+
+  /// Surfaces tombstoned for deletion, for the reconnect flush to drain as
+  /// Supabase `DELETE`s.
+  func pendingFlashcardDeletes(forUserID userID: String) -> [String] {
+    let deletedSource = FlashcardEntity.Source.pendingDelete.rawValue
+    let descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID && $0.source == deletedSource }
+    )
+    let rows = (try? context.fetch(descriptor)) ?? []
+    return rows.map(\.surface)
+  }
+
+  /// Reconcile the local deck with the server's `flashcards` rows, last-writer-
+  /// wins by `updatedAt`, the same ordering and cases `reconcileOverrides` uses.
+  /// Run *after* the reconnect flush has drained pending upserts/deletes:
+  ///   • server card, no local row → insert as `.synced`.
+  ///   • server vs `.synced` local → server authoritative; take its fields.
+  ///   • server vs `.local` (unsynced) → newer `updatedAt` wins; a local win is
+  ///     left `.local` to upload on the next flush.
+  ///   • server vs `.pendingDelete` → keep the tombstone; the flush still owes a
+  ///     `DELETE`, and resurrecting it would undo the user's deletion.
+  ///   • `.synced` local absent from the server → deleted elsewhere; drop it.
+  ///     `.local` / `.pendingDelete` absent are mid-flight, not deletions; keep.
+  func reconcileFlashcards(userID: String, serverCards: [Flashcard]) {
+    let descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID }
+    )
+    let local = (try? context.fetch(descriptor)) ?? []
+    let bySurface = Dictionary(
+      local.map { ($0.surface, $0) },
+      uniquingKeysWith: { current, _ in current }
+    )
+    var serverSurfaces: Set<String> = []
+
+    for card in serverCards {
+      serverSurfaces.insert(card.surface)
+      guard let existing = bySurface[card.surface] else {
+        context.insert(FlashcardEntity(userID: userID, card: card, source: .synced))
+        continue
+      }
+      switch existing.source {
+      case FlashcardEntity.Source.pendingDelete.rawValue:
+        continue // tombstone: the flush owes a DELETE; don't resurrect.
+      case FlashcardEntity.Source.local.rawValue:
+        guard card.updatedAt > existing.updatedAt
+        else { continue } // local edit is newer; keep it to upload.
+        existing.apply(card)
+        existing.source = FlashcardEntity.Source.synced.rawValue
+      default: // .synced — server is authoritative.
+        existing.apply(card)
+      }
+    }
+
+    for existing in local
+      where !serverSurfaces.contains(existing.surface)
+      && existing.source == FlashcardEntity.Source.synced.rawValue
+    {
+      context.delete(existing)
+    }
+    try? context.save()
+  }
+
+  private func flashcardRow(userID: String, surface: String) -> FlashcardEntity? {
+    var descriptor = FetchDescriptor<FlashcardEntity>(
+      predicate: #Predicate { $0.userID == userID && $0.surface == surface }
+    )
+    descriptor.fetchLimit = 1
+    return try? context.fetch(descriptor).first
+  }
+
   // MARK: Maintenance
 
   /// 30-day staleness check against an entry's fetch/generate timestamp.
@@ -379,6 +533,7 @@ final class OfflineCache {
     try? context.delete(model: LyricBodyEntity.self)
     try? context.delete(model: OverrideEntity.self)
     try? context.delete(model: TranslationEntity.self)
+    try? context.delete(model: FlashcardEntity.self)
     try? context.save()
   }
 }

@@ -6,11 +6,12 @@ import SwiftUI
 /// whichever provider is selected.
 ///
 /// Rendered in the app's design language rather than a stock grouped `Form`: a
-/// pinned rounded hero title over a vertical scroll of `Surface`-backed section
-/// cards, each headed by a `SectionHeader`. Music and Appearance share one
-/// three-column selector shape (icon + label, the active option highlighted),
-/// keeping the screen minimal. The cards stay on the opaque content material per
-/// the chrome-vs-content split.
+/// pinned rounded hero title over a vertical scroll of edge-to-edge grouped
+/// sections, each headed by a `SectionHeader` and framed by faint hairline
+/// rules. Music and Appearance share one three-column selector shape (icon +
+/// label, the active option highlighted), keeping the screen minimal. Sections
+/// sit flush on the opaque grouped background (no bright floating cards) per the
+/// chrome-vs-content split — opaque for legibility, just not a stark white slab.
 struct SettingsView: View {
   @Environment(AuthService.self) private var auth
   @Environment(MusicState.self) private var music
@@ -58,7 +59,7 @@ struct SettingsView: View {
     Color(.systemGroupedBackground)
       .overlay(alignment: .top) {
         LinearGradient(
-          colors: [Color.accentColor.opacity(0.08), .clear],
+          colors: [Color.accentColor.opacity(0.06), .clear],
           startPoint: .top,
           endPoint: .center
         )
@@ -66,24 +67,25 @@ struct SettingsView: View {
       .ignoresSafeArea()
   }
 
-  // MARK: - Section card
+  // MARK: - Section group
 
-  /// One section group: a `SectionHeader` over an opaque `Surface` card. Every
-  /// section reuses this shape so nothing reads as leftover `Form` chrome.
+  /// One section group: a `SectionHeader` over its content, sitting flush on the
+  /// opaque grouped background. This is the edge-to-edge grouped treatment —
+  /// full-width, square, no floating bright card — so nothing reads as a stark
+  /// white slab or leftover `Form` chrome. The background base is the opaque
+  /// legibility substrate.
   private func sectionCard<Content: View>(
     _ title: String,
     @ViewBuilder content: () -> Content
   ) -> some View {
     VStack(alignment: .leading, spacing: Spacing.xs) {
       SectionHeader(title)
-      Surface(material: Materials.contentSurface, cornerRadius: Radii.lg) {
-        VStack(alignment: .leading, spacing: Spacing.m) {
-          content()
-        }
-        .padding(Spacing.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
+      VStack(alignment: .leading, spacing: Spacing.m) {
+        content()
       }
       .padding(.horizontal, Spacing.l)
+      .padding(.vertical, Spacing.l)
+      .frame(maxWidth: .infinity, alignment: .leading)
     }
   }
 
@@ -184,7 +186,6 @@ struct SettingsView: View {
           .foregroundStyle(.secondary)
         themeSelector
       }
-      Divider()
       languageRow
     }
   }

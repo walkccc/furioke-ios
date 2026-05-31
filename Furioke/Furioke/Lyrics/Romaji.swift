@@ -1,7 +1,7 @@
 import Foundation
 
 /// Hepburn romanization of a kana string. Used to render the optional rōmaji row
-/// under each lyric line: the furigana pipeline already resolves every kanji run
+/// under each lyric line: the furigana annotator already resolves every kanji run
 /// to a hiragana reading, so a line's rōmaji is derived purely on-device from the
 /// readings — there is no separate rōmaji payload from the backend.
 ///

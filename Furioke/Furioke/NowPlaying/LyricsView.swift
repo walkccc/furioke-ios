@@ -186,9 +186,13 @@ private struct RubyLine: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
+      // Cells are grouped into words before layout: a saveable content word's
+      // cells (変 + わって) become one flow item so the whole word is a single
+      // press target and scales together, while every other token stays its own
+      // item and wraps independently. See `RubyWord.group`.
       RubyFlowLayout(horizontalSpacing: 0, verticalSpacing: 2) {
-        ForEach(Array(line.tokens.enumerated()), id: \.offset) { _, token in
-          RubyTokenCell(token: token, showFurigana: showFurigana)
+        ForEach(Array(RubyWord.group(line.tokens).enumerated()), id: \.offset) { _, word in
+          RubyWordView(cells: word, showFurigana: showFurigana)
         }
       }
       if showRomaji, !line.romaji.isEmpty {
@@ -205,54 +209,109 @@ private struct RubyLine: View {
   }
 }
 
-/// A kanji run with its reading stacked above, or a plain run with the reading
-/// slot reserved (blank) so baselines line up across the row. The font is fixed
-/// — active-vs-resting emphasis is carried entirely by row opacity — so the
-/// cell's height never changes with playback. With furigana off the reading row
-/// is dropped entirely, tightening the line to surface-only.
-private struct RubyTokenCell: View {
-  let token: RubyToken
+/// Groups a line's flat `RubyToken` stream into the words the interaction layer
+/// treats as a unit. A saveable content word is emitted as several cells that
+/// share one `wordSurface` (変 + わって, or 置 + き + 忘 + れ); this collapses those
+/// consecutive cells into one run so the whole word becomes a single press
+/// target. Every other token — particles, punctuation, the non-saveable kana of
+/// a plain run — stays a one-cell run so it wraps and behaves independently.
+private enum RubyWord {
+  static func group(_ tokens: [RubyToken]) -> [[RubyToken]] {
+    var runs: [[RubyToken]] = []
+    for token in tokens {
+      // Extend the current run only when this cell is a saveable continuation of
+      // the same word — matched on `wordSurface`, shared across a word's okurigana
+      // cells. Non-saveable tokens never merge, so they can't swallow a neighbour.
+      if token.saveable,
+         let last = runs.last?.last,
+         last.saveable,
+         last.wordSurface == token.wordSurface {
+        runs[runs.count - 1].append(token)
+      } else {
+        runs.append([token])
+      }
+    }
+    return runs
+  }
+}
+
+/// One word on the lyric surface: the shared read-only `RubyCell` visuals for
+/// each of its cells, with the surface's interactive behavior layered on the
+/// *whole word*. A saveable content word (kanji or kana — see `RubyToken.saveable`)
+/// is interactive — a press-down response while held, the reading/save editor on
+/// long-press, and an accent marker when already in the flashcard deck — and all
+/// of its cells (変 + わって) respond together because they form a single gesture
+/// target. A non-saveable run (one cell: a particle, punctuation, plain kana)
+/// just renders. A short tap falls through to the line's tap-to-seek.
+private struct RubyWordView: View {
+  let cells: [RubyToken]
   let showFurigana: Bool
   @Environment(NowPlayingState.self) private var nowPlaying
+  @Environment(FlashcardsState.self) private var flashcards
   @State private var pressing = false
 
-  var body: some View {
-    let cell = VStack(spacing: 0) {
-      if showFurigana {
-        Text(token.reading ?? " ")
-          .font(Typography.furigana)
-          .foregroundStyle(.secondary)
-          .opacity(token.reading == nil ? 0 : 1)
-      }
-      Text(token.surface)
-        .font(Typography.lyricRest)
-    }
-    .fixedSize()
+  /// The word these cells belong to — every cell of a saveable run shares its
+  /// `wordSurface`/`wordReading`/`saveable`, and a non-saveable run is a single
+  /// cell, so the first cell stands for the whole word.
+  private var word: RubyToken { cells[0] }
 
-    // Only kanji-bearing tokens (those carrying a reading) are editable. The cell
-    // gives a press-down response while held and opens the reading editor when the
-    // long-press fires; a short tap falls through to the line's tap-to-seek.
-    if token.reading != nil {
-      cell
+  /// A word already in the deck gets the marker on *every* cell, keyed by
+  /// `wordSurface` (shared across a word's okurigana cells), so the underline
+  /// spans the whole saved word. A non-saveable run keys on its own surface,
+  /// which is never itself a saved word.
+  private var isSaved: Bool {
+    flashcards.isSaved(word.wordSurface)
+  }
+
+  /// Whether the word can be long-pressed: a saveable content word, kanji or
+  /// kana. The whole 変わって is pressable, and so are kana words like わかって,
+  /// while particles and punctuation stay inert.
+  private var isInteractive: Bool {
+    word.saveable
+  }
+
+  var body: some View {
+    // The word's cells laid out tight; zero spacing keeps okurigana abutting so
+    // a saved word's per-cell underline bars merge into one continuous line.
+    let run = HStack(spacing: 0) {
+      ForEach(Array(cells.enumerated()), id: \.offset) { _, token in
+        RubyCell(token: token, showFurigana: showFurigana)
+          // A thin accent underline marks a saved word. It sits below the surface
+          // glyph and is distinct from the active-line emphasis (opacity-only),
+          // so the two never read as the same signal.
+          .overlay(alignment: .bottom) {
+            if isSaved {
+              Rectangle()
+                .fill(Color("AccentColor"))
+                .frame(height: 2)
+                .offset(y: 2)
+            }
+          }
+      }
+    }
+
+    if isInteractive {
+      run
+        // The whole word scales as one — press 変 or わって and the entire
+        // 変わって depresses together, because the cells share this one target.
         .scaleEffect(pressing ? 0.9 : 1)
         .animation(Motion.pop, value: pressing)
         .contentShape(Rectangle())
-        // Edit the *whole word*, not this cell's kanji run: the override is keyed by
-        // `wordSurface` so it matches `CorrectionMap` on re-render (see `RubyToken`).
+        // Edit the *whole word*: the override is keyed by `wordSurface` so it
+        // matches `CorrectionMap` on re-render (see `RubyToken`).
         .onLongPressGesture(minimumDuration: 0.4) {
-          nowPlaying.beginEditing(surface: token.wordSurface, reading: token.wordReading)
+          nowPlaying.beginEditing(surface: word.wordSurface, reading: word.wordReading)
         } onPressingChanged: { pressing = $0 }
         // The long-press is a touch gesture VoiceOver can't perform, so the same
-        // edit is exposed as a named custom action. The reading + surface are
-        // combined into one element so the word is announced once, then the
-        // action is offered.
+        // edit is exposed as a named custom action. The word's cells are combined
+        // into one element so it is announced once, then the action is offered.
         .accessibilityElement(children: .combine)
         .accessibilityHint("Corrects the reading")
         .accessibilityAction(named: Text("Correct reading")) {
-          nowPlaying.beginEditing(surface: token.wordSurface, reading: token.wordReading)
+          nowPlaying.beginEditing(surface: word.wordSurface, reading: word.wordReading)
         }
     } else {
-      cell
+      run
     }
   }
 }

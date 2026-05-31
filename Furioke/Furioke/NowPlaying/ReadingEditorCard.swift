@@ -1,9 +1,12 @@
 import SwiftUI
 
 /// The focus-overlay reading editor: a glass card that floats over the dimmed
-/// lyric column when the reader long-presses a kanji word. It echoes the targeted
-/// surface and offers a legible field to correct its reading; Save reports the
-/// draft back via `onSave`, which the surface routes through `recordOverride`.
+/// lyric column when the reader long-presses a word. It echoes the targeted
+/// surface and, for a kanji word, offers a legible field to correct its reading;
+/// Save reports the draft back via `onSave`, which the surface routes through
+/// `recordOverride`. A kana-only word has no furigana to fix, so the card drops
+/// to a save-only sheet (`correctable == false`): just the word and its
+/// Save-to-flashcards toggle, no field, no reading Save.
 ///
 /// The editable draft lives in this view's own `@State` (seeded once from the
 /// initial values) rather than a binding into the surface's optional edit state.
@@ -15,11 +18,21 @@ import SwiftUI
 /// field sits on an opaque `Surface` inset so the kana stays crisp.
 struct ReadingEditorCard: View {
   let surface: String
+  /// Whether the word's reading can be corrected (it contains kanji). When false
+  /// the card is a save-only sheet: no reading field, no Remember toggle, and no
+  /// reading Save — only the surface and the Save-to-flashcards affordance.
+  let correctable: Bool
   /// Whether to show the **Remember this reading** toggle. The playback overlay
   /// shows it (persist-everywhere vs. session-only); the overrides manager hides
   /// it — there the override is already persisted, so "remember" is meaningless and
   /// the edit always saves with `rememberEverywhere == true`.
   let showsRememberToggle: Bool
+  /// Deck membership for the targeted word, or `nil` to hide the save-to-
+  /// flashcards affordance entirely (the overrides manager passes `nil`; the
+  /// playback overlay passes the current state). Saving is independent of the
+  /// reading correction — it neither requires nor records one.
+  let isSavedToDeck: Bool?
+  let onToggleSave: (() -> Void)?
   let onCancel: () -> Void
   let onSave: (_ reading: String, _ rememberEverywhere: Bool) -> Void
 
@@ -29,14 +42,20 @@ struct ReadingEditorCard: View {
 
   init(
     surface: String,
+    correctable: Bool = true,
     initialReading: String,
     initialRemember: Bool,
     showsRememberToggle: Bool = true,
+    isSavedToDeck: Bool? = nil,
+    onToggleSave: (() -> Void)? = nil,
     onCancel: @escaping () -> Void,
     onSave: @escaping (String, Bool) -> Void
   ) {
     self.surface = surface
+    self.correctable = correctable
     self.showsRememberToggle = showsRememberToggle
+    self.isSavedToDeck = isSavedToDeck
+    self.onToggleSave = onToggleSave
     self.onCancel = onCancel
     self.onSave = onSave
     _reading = State(initialValue: initialReading)
@@ -57,24 +76,30 @@ struct ReadingEditorCard: View {
     GlassChrome(role: Materials.chromeGlass) {
       VStack(alignment: .leading, spacing: Spacing.l) {
         editorRow
-        if showsRememberToggle {
+        if correctable, showsRememberToggle {
           rememberToggle
+        }
+        if let isSavedToDeck, let onToggleSave {
+          saveToDeckButton(isSaved: isSavedToDeck, action: onToggleSave)
         }
         buttons
       }
       .padding(Spacing.l)
     }
     .frame(maxWidth: 360)
-    .onAppear { fieldFocused = true }
+    .onAppear { if correctable { fieldFocused = true } }
   }
 
-  /// The targeted kanji and its editable reading on one line — the surface echoes
-  /// what's being corrected, the field carries the fix.
+  /// The targeted word and — for a kanji word — its editable reading on one line:
+  /// the surface echoes what's being acted on, the field carries the reading fix.
+  /// A kana word shows just the surface (nothing to correct).
   private var editorRow: some View {
     HStack(spacing: Spacing.m) {
       Text(surface)
         .font(Typography.lyricActive)
-      field
+      if correctable {
+        field
+      }
     }
   }
 
@@ -135,25 +160,55 @@ struct ReadingEditorCard: View {
     .accessibilityAddTraits(.isButton)
   }
 
+  /// "Save to flashcards" — a lit-glass pill in the same idiom as the Remember
+  /// toggle. Lit when the word is already in the deck; tapping toggles membership
+  /// without dismissing the editor, so the learner can still correct the reading.
+  private func saveToDeckButton(isSaved: Bool, action: @escaping () -> Void) -> some View {
+    Button(action: action) {
+      HStack(spacing: Spacing.s) {
+        Image(systemName: isSaved ? "checkmark.circle.fill" : "circle")
+        Text("Save to flashcards")
+          .font(Typography.metadata)
+      }
+      .foregroundStyle(isSaved ? .primary : .secondary)
+      .padding(.horizontal, Spacing.m)
+      .padding(.vertical, Spacing.s)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .contentShape(Capsule())
+    }
+    .buttonStyle(.plain)
+    .background(
+      Capsule().fill(Color.primary.opacity(isSaved ? 0 : 0.06))
+    )
+    .glassEffect(litGlass(isOn: isSaved), in: Capsule())
+    .accessibilityLabel("Save to flashcards")
+    .accessibilityValue(isSaved ? "Saved" : "Not saved")
+    .accessibilityAddTraits(.isButton)
+  }
+
   private var buttons: some View {
     HStack {
-      Button("Cancel", role: .cancel, action: onCancel)
+      // The save-only sheet has no reading to commit, so its single dismiss button
+      // reads "Done"; the deck toggle above has already persisted any change.
+      Button(correctable ? "Cancel" : "Done", role: .cancel, action: onCancel)
         .buttonStyle(.plain)
         .foregroundStyle(.secondary)
-      Spacer()
-      Button {
-        onSave(trimmedReading, rememberEverywhere)
-      } label: {
-        Text("Save")
-          .font(Typography.metadata.weight(.semibold))
-          .padding(.horizontal, Spacing.l)
-          .padding(.vertical, Spacing.s)
-          .contentShape(Capsule())
+      if correctable {
+        Spacer()
+        Button {
+          onSave(trimmedReading, rememberEverywhere)
+        } label: {
+          Text("Save")
+            .font(Typography.metadata.weight(.semibold))
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.s)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .glassEffect(litGlass(isOn: canSave), in: Capsule())
+        .opacity(canSave ? 1 : 0.5)
+        .disabled(!canSave)
       }
-      .buttonStyle(.plain)
-      .glassEffect(litGlass(isOn: canSave), in: Capsule())
-      .opacity(canSave ? 1 : 0.5)
-      .disabled(!canSave)
     }
     .font(Typography.metadata)
   }

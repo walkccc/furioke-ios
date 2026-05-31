@@ -16,6 +16,7 @@ struct AppShell: View {
   @Environment(MusicState.self) private var music
   @Environment(NowPlayingState.self) private var nowPlaying
   @Environment(LibraryState.self) private var library
+  @Environment(FlashcardsState.self) private var flashcards
   @Environment(YouTubePlayerController.self) private var youTube
 
   /// Namespace + id pairing the mini-player's `.matchedTransitionSource` with the
@@ -35,8 +36,10 @@ struct AppShell: View {
     return ZStack(alignment: .bottom) {
       LiquidGlassTabBar(
         selection: $selection,
+        showsAccessory: music.currentTrack != nil,
         library: { LibraryView() },
         search: { SearchView() },
+        study: { NavigationStack { DeckView() } },
         settings: { SettingsView() },
         bottomAccessory: { miniPlayer }
       )
@@ -126,10 +129,12 @@ struct AppShell: View {
     }
     // Zoom up from / shrink back into the mini-player platter.
     .navigationTransition(.zoom(sourceID: playerTransitionID, in: playerNamespace))
-    // A cover presents in a fresh environment branch; re-inject the players.
+    // A cover presents in a fresh environment branch; re-inject the players and
+    // the flashcards store the lyric surface + reading editor read.
     .environment(music)
     .environment(nowPlaying)
     .environment(youTube)
+    .environment(flashcards)
   }
 
   /// The embedded video player, mounted only when the active source advertises a
@@ -210,8 +215,15 @@ struct AppShell: View {
           .transition(.opacity)
         ReadingEditorCard(
           surface: edit.surface,
+          correctable: FuriganaAnnotator.containsKanji(edit.surface),
           initialReading: edit.reading,
           initialRemember: edit.rememberEverywhere,
+          isSavedToDeck: flashcards.isSaved(edit.surface),
+          onToggleSave: {
+            if let input = nowPlaying.flashcardCaptureInput {
+              flashcards.toggleSave(input)
+            }
+          },
           onCancel: { nowPlaying.cancelEditing() },
           onSave: { reading, remember in
             nowPlaying.commitEditing(reading: reading, rememberEverywhere: remember)

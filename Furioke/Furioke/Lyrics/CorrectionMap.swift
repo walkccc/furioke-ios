@@ -8,7 +8,7 @@ import Foundation
 /// it and take precedence.
 ///
 /// Per-user overrides come from `OverrideEntity`, which lands in a later change.
-/// To avoid coupling the pipeline to a SwiftData model that does not exist yet,
+/// To avoid coupling the annotator to a SwiftData model that does not exist yet,
 /// the caller loads those overrides and passes them in — mirroring the web's
 /// `setUserOverrides(map)` seam.
 nonisolated struct CorrectionMap {

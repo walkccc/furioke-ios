@@ -57,10 +57,11 @@ without an app restart when the session changes during runtime.
 ### Requirement: AppShell with three primary tabs
 
 The signed-in app SHALL present an `AppShell` containing a `TabView` with
-exactly three primary tabs in this order: **Library**, **Search**, **Settings**.
-**Library** SHALL be the default selected tab on first launch. NowPlaying SHALL
-NOT be a tab — it is delivered as the expanded state of the persistent
-mini-player.
+exactly four primary tabs in this order: **Library**, **Search**, **Study**,
+**Settings**. **Library** SHALL be the default selected tab on first launch. The
+**Study** tab SHALL host the flashcard deck and study mode as a
+`NavigationStack`. NowPlaying SHALL NOT be a tab — it is delivered as the
+expanded state of the persistent mini-player.
 
 #### Scenario: First launch shows Library
 
@@ -70,8 +71,14 @@ mini-player.
 #### Scenario: Tab order is fixed
 
 - **WHEN** the user views the tab bar
-- **THEN** the tabs appear in the order Library, Search, Settings, with no
-  user-configurable reordering in v1, and there is no NowPlaying tab
+- **THEN** the tabs appear in the order Library, Search, Study, Settings, with
+  no user-configurable reordering in v1, and there is no NowPlaying tab
+
+#### Scenario: Study tab hosts the flashcard deck
+
+- **WHEN** the user selects the Study tab
+- **THEN** the flashcard deck view is shown, from which study mode can be
+  entered
 
 #### Scenario: Per-tab scroll state survives switching
 

@@ -34,7 +34,9 @@ final class NowPlayingState {
     case idle
     case loading
     case loaded
-    /// Online attempt failed (no cache, quota/provider/not-found).
+    /// Online attempt failed with nothing cached. The dominant cause is the
+    /// per-user daily quota (the route returns 429 at-limit), so its notice leads
+    /// with the limit; provider/not-found failures share the same copy.
     case unavailable
     /// Offline with nothing cached.
     case unavailableOffline
@@ -77,7 +79,7 @@ final class NowPlayingState {
   private let auth: AuthService
   private let corrections: ReadingCorrectionsService
   private let network: NetworkMonitor
-  private let pipeline = FuriganaPipeline()
+  private let annotator = FuriganaAnnotator()
 
   @ObservationIgnored private var loadTask: Task<Void, Never>?
   @ObservationIgnored private var translationTask: Task<Void, Never>?
@@ -86,7 +88,7 @@ final class NowPlayingState {
   @ObservationIgnored private var loadedTrackID: String?
 
   /// The raw LRC body for the loaded track, kept so a reading edit can re-run the
-  /// furigana pipeline locally without re-fetching `/api/lyrics`.
+  /// furigana annotator locally without re-fetching `/api/lyrics`.
   @ObservationIgnored private var loadedBody: String?
 
   /// In-session, non-persisted overrides from an **Apply to all songs**-off edit:
@@ -128,7 +130,8 @@ final class NowPlayingState {
   var translationNoticeText: String? {
     switch translationStatus {
     case .unavailableOffline: "Translation isn't available offline."
-    case .unavailable: "Translation isn't available right now."
+    case .unavailable:
+      "You've reached today's limit of \(TranslationService.dailyLimit) translations. Try again tomorrow."
     case .idle, .loading, .loaded: nil
     }
   }
@@ -189,7 +192,7 @@ final class NowPlayingState {
   }
 
   /// Load the lyric body through the offline read-through cache and run each
-  /// emitted body through the local furigana pipeline. The cache may emit twice on
+  /// emitted body through the local furigana annotator. The cache may emit twice on
   /// the online-fresh path (cached body, then a revalidated body), so the stream
   /// is consumed to completion and the surface re-renders on each `.value`. Guarded
   /// so re-entry for the same track is a no-op.
@@ -235,11 +238,11 @@ final class NowPlayingState {
       // compute furigana in the background and upgrade the lines in place. The
       // kuromoji tokenizer's first (cold) build can take several seconds, and
       // blocking the whole surface on it is what made lyrics feel slow to load.
-      lines = pipeline.plainLines(lrcBody: result.body)
+      lines = annotator.plainLines(lrcBody: result.body)
       status = .loaded
       furiganaLoading = true
       do {
-        let annotated = try await pipeline.annotate(
+        let annotated = try await annotator.annotate(
           lrcBody: result.body,
           corrections: currentCorrectionMap()
         )
@@ -273,6 +276,25 @@ final class NowPlayingState {
     withAnimation(Motion.pop) {
       editingReading = ReadingEdit(surface: surface, reading: reading, rememberEverywhere: true)
     }
+  }
+
+  /// The flashcard capture input for the word currently open in the reading
+  /// editor, carrying the song + source-line context the editor card itself
+  /// lacks. `nil` when no edit is open. The source line is the annotated lyric
+  /// line containing the word, serialized to pipe notation so a saved card can
+  /// render it as ruby. `AppShell` forwards this to `FlashcardsState.toggleSave`.
+  var flashcardCaptureInput: SaveFlashcardInput? {
+    guard let edit = editingReading else { return nil }
+    let track = music.currentTrack
+    let line = lines.first { $0.tokens.contains { $0.wordSurface == edit.surface } }
+    let artist = track.flatMap { $0.artists.isEmpty ? nil : $0.artists.joined(separator: ", ") }
+    return SaveFlashcardInput(
+      surface: edit.surface,
+      reading: edit.reading,
+      sourceTitle: track?.title,
+      sourceArtist: artist,
+      sourceLine: line.map { SourceLineCodec.serialize($0.tokens) }
+    )
   }
 
   /// Dismiss the editor without recording anything.
@@ -331,7 +353,7 @@ final class NowPlayingState {
     return CorrectionMap.withSeed(userOverrides: overrides)
   }
 
-  /// Re-run the pipeline over the cached body with the latest override map, so an
+  /// Re-run the annotator over the cached body with the latest override map, so an
   /// edit takes effect within a render frame and with no `/api/lyrics` round-trip.
   private func reannotate() {
     guard let body = loadedBody else { return }
@@ -339,7 +361,7 @@ final class NowPlayingState {
     reannotateTask?.cancel()
     reannotateTask = Task { [weak self] in
       guard let self else { return }
-      guard let annotated = try? await pipeline.annotate(lrcBody: body, corrections: corrections),
+      guard let annotated = try? await annotator.annotate(lrcBody: body, corrections: corrections),
             !Task.isCancelled
       else { return }
       self.lines = annotated

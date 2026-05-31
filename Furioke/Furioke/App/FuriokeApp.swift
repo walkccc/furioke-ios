@@ -21,6 +21,7 @@ struct FuriokeApp: App {
   @State private var cache: OfflineCache
   @State private var library: LibraryState
   @State private var overrides: ReadingOverridesState
+  @State private var flashcards: FlashcardsState
 
   /// Drives the Spotify App Remote connect lifecycle: the post-auth-callback connect
   /// must wait for `.active`, and a session dropped while backgrounded is revived on
@@ -66,6 +67,14 @@ struct FuriokeApp: App {
       service: SavedSongsService(auth: auth),
       network: network
     )
+    let flashcards = FlashcardsState(
+      cache: cache,
+      service: FlashcardsService(auth: auth),
+      auth: auth,
+      network: network,
+      translation: TranslationService(auth: auth),
+      preferences: preferences
+    )
 
     // Purge every per-user cache entity on explicit sign-out. Auth must
     // not import the cache, so the composition root wires the teardown here.
@@ -81,6 +90,7 @@ struct FuriokeApp: App {
     _cache = State(initialValue: cache)
     _library = State(initialValue: library)
     _overrides = State(initialValue: overrides)
+    _flashcards = State(initialValue: flashcards)
   }
 
   var body: some Scene {
@@ -94,6 +104,7 @@ struct FuriokeApp: App {
         .environment(network)
         .environment(library)
         .environment(overrides)
+        .environment(flashcards)
         // The offline cache's SwiftData container backs `@Query` in the Library
         // tab and `modelContext` writes elsewhere.
         .modelContainer(cache.container)
@@ -111,6 +122,10 @@ struct FuriokeApp: App {
         // Evict cache entries past the 90-day retention bound, off the launch
         // critical path.
         .task { cache.runJanitor() }
+        // Flush any queued flashcard writes and pull the server deck on launch
+        // (a no-op while signed out / offline); reconnect + sign-in are covered
+        // by `FlashcardsState`'s own observers.
+        .task { await flashcards.syncPendingFlashcards() }
         // Warm the kuromoji tokenizer in the background so the first song's
         // furigana doesn't pay the multi-second cold dictionary build on the
         // lyric render path. Lyrics still show instantly regardless; this just

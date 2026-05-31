@@ -4,7 +4,7 @@ import Foundation
 /// client) and `OfflineCache` (`LyricBodyEntity`), keyed by `MusicTrack.id`, and
 /// resolves the online/offline × hit/miss/stale matrix through `ReadThroughCache`.
 /// The caller (`NowPlayingState`) runs each emitted body through the furigana
-/// pipeline.
+/// annotator.
 @MainActor
 final class LyricRepository {
   private let service: LyricsService

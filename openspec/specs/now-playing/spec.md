@@ -172,7 +172,7 @@ not expose queue state (YouTube metadata-only), the surface SHALL render an
 ### Requirement: Companion mode for externally-initiated playback
 
 The app SHALL set `MusicState.source = .observed(track)` and SHALL run the
-existing lyric-fetch + furigana pipeline against that track when the active
+existing lyric-fetch + furigana annotator against that track when the active
 adapter publishes a track Furioke did not initiate (e.g., the user started a
 song in the Spotify app outside Furioke, or skipped tracks via the Lock Screen,
 or the adapter advanced its own queue). The UI SHALL show a "Companion —
@@ -191,7 +191,7 @@ state.
   Furioke did not initiate via `playTrack`
 - **THEN** `MusicState.source` becomes `.observed(track)`, the NowPlayingSheet
   calls `/api/lyrics` for the new track, the result runs through the local
-  furigana pipeline, and the UI shows the "Companion — {provider}" indicator
+  furigana annotator, and the UI shows the "Companion — {provider}" indicator
 
 #### Scenario: Saved-song query takes precedence
 
