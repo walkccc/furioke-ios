@@ -155,18 +155,33 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
     }
   }
 
-  /// あ — toggles the furigana readings above the kanji. The disc brightens and
-  /// the glyph goes solid white when on; quiet otherwise.
+  /// あ — toggles the furigana readings above the kanji. When on, the whole disc
+  /// becomes an accent-green fill (the same `AccentColor` tint as the active tab
+  /// bar items) with a white あ on top — the Liquid Glass active state. When off,
+  /// it's the quieter translucent disc with a secondary-colored あ sitting on top.
   private var furiganaToggle: some View {
     Button(action: onToggleFurigana) {
-      Text("あ")
-        .font(.system(size: 19, weight: .semibold, design: .rounded))
-        .foregroundStyle(showFurigana ? .primary : .secondary)
-        .frame(width: 40, height: 40)
-        .contentShape(Circle())
+      ZStack {
+        if showFurigana {
+          Circle()
+            .fill(Color("AccentColor"))
+            .overlay {
+              Text("あ")
+                .font(.system(size: 19, weight: .bold, design: .rounded))
+                .foregroundStyle(.white)
+            }
+        } else {
+          Text("あ")
+            .font(.system(size: 19, weight: .semibold, design: .rounded))
+            .foregroundStyle(.secondary)
+        }
+      }
+      .frame(width: 40, height: 40)
+      .contentShape(Circle())
     }
     .buttonStyle(.plain)
-    .glassEffect(discGlass(isActive: showFurigana), in: Circle())
+    .glassEffect(Materials.controlTier.glass, in: Circle())
+    .animation(Motion.ease, value: showFurigana)
     .accessibilityLabel("Furigana")
     .accessibilityValue(showFurigana ? "On" : "Off")
   }

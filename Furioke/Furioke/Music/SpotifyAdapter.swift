@@ -20,8 +20,20 @@ final class SpotifyAdapter: NSObject, MusicSource {
   let requiresAccount = true
   let supportsRepeat = true
 
+  /// Vends a *fresh* stream on every access, rebinding `updatesContinuation` to the
+  /// new consumer. `MusicState` re-subscribes every time a provider is (re)selected,
+  /// and an `AsyncStream` is single-shot: once the iterating task is cancelled — as
+  /// `teardownActive()` does on every disconnect / provider switch — that stream is
+  /// finished for good. Returning a single stored stream would hand the next
+  /// subscriber an already-finished sequence, so nothing (not even `.connected`)
+  /// would reach the UI again until the app is killed and relaunched — exactly the
+  /// "first connect works, every reconnect fails" symptom. A new stream per access
+  /// keeps each connect cycle live; single-active-provider means there's only ever
+  /// one consumer, so dropping the previous continuation is safe.
   var updates: AsyncStream<MusicUpdate> {
-    updatesStream
+    AsyncStream { continuation in
+      updatesContinuation = continuation
+    }
   }
 
   // MARK: SDK objects
@@ -45,8 +57,7 @@ final class SpotifyAdapter: NSObject, MusicSource {
 
   // MARK: Update stream
 
-  private let updatesStream: AsyncStream<MusicUpdate>
-  private let updatesContinuation: AsyncStream<MusicUpdate>.Continuation
+  private var updatesContinuation: AsyncStream<MusicUpdate>.Continuation?
 
   private var connection: MusicConnection = .disconnected
 
@@ -71,10 +82,6 @@ final class SpotifyAdapter: NSObject, MusicSource {
   private var pendingConnect = false
 
   override init() {
-    let (stream, continuation) = AsyncStream<MusicUpdate>.makeStream()
-    updatesStream = stream
-    updatesContinuation = continuation
-
     let config = SPTConfiguration(
       clientID: SpotifyConfig.clientID,
       redirectURL: SpotifyConfig.redirectURL
@@ -335,7 +342,7 @@ final class SpotifyAdapter: NSObject, MusicSource {
       playbackMode: "native-sdk",
       playbackError: error
     )
-    updatesContinuation.yield(update)
+    updatesContinuation?.yield(update)
   }
 
   fileprivate func emit(snapshot: PlayerSnapshot) {

@@ -126,6 +126,9 @@ struct ReadingEditorCard: View {
       .contentShape(Capsule())
     }
     .buttonStyle(.plain)
+    .background(
+      Capsule().fill(Color.primary.opacity(rememberEverywhere ? 0 : 0.06))
+    )
     .glassEffect(litGlass(isOn: rememberEverywhere), in: Capsule())
     .accessibilityLabel("Remember this reading")
     .accessibilityValue(rememberEverywhere ? "On" : "Off")

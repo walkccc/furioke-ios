@@ -12,6 +12,12 @@ struct SearchView: View {
   @State private var query = ""
   @State private var results: [MusicTrack] = []
   @State private var phase: Phase = .idle
+  @FocusState private var searchFocused: Bool
+
+  /// Recent search terms, newest first, persisted across launches. A single-line
+  /// search field can't contain newlines, so a newline-joined string is a safe,
+  /// dependency-free encoding for `@AppStorage`.
+  @AppStorage("furioke.recentSearches") private var recentSearchesRaw = ""
 
   private enum Phase: Equatable {
     case idle
@@ -22,18 +28,61 @@ struct SearchView: View {
   }
 
   var body: some View {
-    NavigationStack {
+    VStack(alignment: .leading, spacing: 0) {
+      // Rounded hero title at the same top offset as Library and Settings. The
+      // search field moves into the content just below it (a custom glass field),
+      // so there's no navigation-bar search field pushing the title down.
+      Text("Search")
+        .font(Typography.pageTitle)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, Spacing.l)
+        .padding(.top, Spacing.l)
+        .padding(.bottom, Spacing.s)
+
+      searchField
+        .padding(.horizontal, Spacing.l)
+        .padding(.bottom, Spacing.s)
+
       content
-        .navigationTitle("Search")
-        .searchable(
-          text: $query,
-          prompt: "Songs on \(music.activeProvider?.displayName ?? "your music")"
-        )
-        // `.task(id:)` re-runs and cancels the prior task on every keystroke, so
-        // the 300ms sleep only elapses once the user pauses — the debounce. An
-        // empty field clears results without scheduling a request.
-        .task(id: query) { await debouncedSearch() }
     }
+    // `.task(id:)` re-runs and cancels the prior task on every keystroke, so the
+    // 300ms sleep only elapses once the user pauses — the debounce. An empty
+    // field clears results without scheduling a request.
+    .task(id: query) { await debouncedSearch() }
+  }
+
+  /// Custom glass search field, replacing `.searchable` so the rounded title can
+  /// sit at the top like the other tabs. Wears `chromeGlass` per the design
+  /// system's search-field rule; disabled until a provider is connected.
+  private var searchField: some View {
+    HStack(spacing: Spacing.s) {
+      Image(systemName: "magnifyingglass")
+        .foregroundStyle(.secondary)
+      TextField(
+        "Songs on \(music.activeProvider?.displayName ?? "your music")",
+        text: $query
+      )
+      .textInputAutocapitalization(.never)
+      .autocorrectionDisabled()
+      .submitLabel(.search)
+      .focused($searchFocused)
+      .onSubmit { addRecentSearch(query) }
+      if !query.isEmpty {
+        Button {
+          query = ""
+        } label: {
+          Image(systemName: "xmark.circle.fill")
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Clear search")
+      }
+    }
+    .font(Typography.body)
+    .padding(.horizontal, Spacing.m)
+    .padding(.vertical, Spacing.s)
+    .glassEffect(Materials.chromeGlass.glass, in: Capsule())
+    .disabled(!music.isConnected)
   }
 
   @ViewBuilder
@@ -47,11 +96,15 @@ struct SearchView: View {
     } else {
       switch phase {
       case .idle:
-        EmptyState(
-          systemImage: "magnifyingglass",
-          title: "Search \(music.activeProvider?.displayName ?? "your music")",
-          message: "Find a song to play and read along with furigana."
-        )
+        if recentSearches.isEmpty {
+          EmptyState(
+            systemImage: "magnifyingglass",
+            title: "Search \(music.activeProvider?.displayName ?? "your music")",
+            message: "Find a song to play and read along with furigana."
+          )
+        } else {
+          recentSearchesList
+        }
       case .searching:
         ProgressView()
           .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -64,6 +117,10 @@ struct SearchView: View {
       case .results:
         List(results) { track in
           Button {
+            // The query that surfaced a played result is a meaningful search —
+            // record it and drop the keyboard before the player expands.
+            addRecentSearch(query)
+            searchFocused = false
             nowPlaying.play(track: track)
           } label: {
             RowItem(
@@ -77,6 +134,8 @@ struct SearchView: View {
             }
           }
           .buttonStyle(.plain)
+          // Match Library: no dividers — the artwork separates rows visually.
+          .listRowSeparator(.hidden)
         }
         .listStyle(.plain)
       case let .failed(message):
@@ -87,6 +146,64 @@ struct SearchView: View {
         )
       }
     }
+  }
+
+  /// Idle-state list of recent searches: tap to re-run, swipe to remove one, or
+  /// clear them all from the section header.
+  private var recentSearchesList: some View {
+    List {
+      Section {
+        ForEach(recentSearches, id: \.self) { term in
+          Button {
+            query = term
+          } label: {
+            Label(term, systemImage: "clock.arrow.circlepath")
+              .font(Typography.body)
+          }
+          .buttonStyle(.plain)
+          .listRowSeparator(.hidden)
+          .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+              removeRecentSearch(term)
+            } label: {
+              Label("Remove", systemImage: "trash")
+            }
+          }
+        }
+      } header: {
+        HStack {
+          Text("Recent")
+          Spacer()
+          Button("Clear") { clearRecentSearches() }
+            .font(Typography.metadata)
+        }
+      }
+    }
+    .listStyle(.plain)
+  }
+
+  // MARK: Recent searches
+
+  private var recentSearches: [String] {
+    recentSearchesRaw.split(separator: "\n").map(String.init)
+  }
+
+  /// Record a term as the most recent search: trimmed, case-insensitively
+  /// de-duplicated, newest first, capped at 8.
+  private func addRecentSearch(_ term: String) {
+    let trimmed = term.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return }
+    var list = recentSearches.filter { $0.caseInsensitiveCompare(trimmed) != .orderedSame }
+    list.insert(trimmed, at: 0)
+    recentSearchesRaw = list.prefix(8).joined(separator: "\n")
+  }
+
+  private func removeRecentSearch(_ term: String) {
+    recentSearchesRaw = recentSearches.filter { $0 != term }.joined(separator: "\n")
+  }
+
+  private func clearRecentSearches() {
+    recentSearchesRaw = ""
   }
 
   private func debouncedSearch() async {

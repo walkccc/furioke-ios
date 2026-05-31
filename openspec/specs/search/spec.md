@@ -15,8 +15,11 @@ The Search tab SHALL run catalog search against the active connected provider's
 adapter. Results SHALL be returned in the provider-neutral track shape so the
 rendering is identical across providers and SHALL render via the shared
 `RowItem` primitive. The user SHALL NOT be able to search a provider they have
-not connected. The search field SHALL wear `Materials.chromeGlass` at the top of
-the Search tab.
+not connected. The Search tab SHALL present a rounded `Typography.pageTitle`
+header at the top of the content, with the search field directly below it. The
+search field SHALL be a custom in-content field (not a navigation-bar
+`.searchable` field) wearing `Materials.chromeGlass`, and SHALL be disabled
+until a provider is connected.
 
 #### Scenario: Searching Spotify catalog
 
@@ -46,6 +49,13 @@ the Search tab.
 - **WHEN** the user opens the Search tab with no provider connected
 - **THEN** the surface shows an `EmptyState` directing the user to Settings to
   connect a provider; the search field is disabled
+
+#### Scenario: Rounded title aligns with the other tabs
+
+- **WHEN** the Search tab is displayed
+- **THEN** the rounded "Search" title sits at the top of the content (the same
+  top offset as the Library and Settings hero titles), with the glass search
+  field directly beneath it
 
 ### Requirement: Tap result to play (no tab switch)
 
@@ -106,3 +116,49 @@ input SHALL clear the result list immediately.
 - **WHEN** the user clears the search field
 - **THEN** the result list empties immediately, with no pending or in-flight
   request continuing to populate it
+
+### Requirement: Recent search history
+
+The Search tab SHALL keep a recent-search history persisted across launches. A
+search term SHALL be recorded when the user submits the field and when the user
+plays a result. The history SHALL be trimmed of surrounding whitespace,
+de-duplicated case-insensitively, ordered newest-first, and capped at a small
+fixed number of entries. The history SHALL be local to the device. When the
+Search tab is idle (connected, with an empty query) and the history is
+non-empty, the tab SHALL surface the history as a list whose rows re-run a term
+when tapped; the user SHALL be able to remove a single term and to clear the
+whole history. When the history is empty, the idle state SHALL show the search
+empty-state instead.
+
+#### Scenario: A played result records its search term
+
+- **WHEN** the user searches `lemon` and taps a result to play it
+- **THEN** `lemon` is stored as the most-recent search term and persists across
+  app launches
+
+#### Scenario: Submitting records the term
+
+- **WHEN** the user types a query and submits the search field
+- **THEN** the trimmed query is stored as the most-recent search term
+
+#### Scenario: Recent terms are de-duplicated newest-first
+
+- **WHEN** the user searches a term that already exists in the history
+- **THEN** it moves to the top of the list rather than being duplicated, and the
+  list stays within its fixed cap
+
+#### Scenario: Idle state surfaces history
+
+- **WHEN** the user opens the Search tab with a provider connected, an empty
+  query, and a non-empty history
+- **THEN** the recent terms are listed; tapping a term re-runs the search for it
+
+#### Scenario: Removing and clearing history
+
+- **WHEN** the user swipes a recent term to remove it, or taps Clear
+- **THEN** that term (or the entire history) is removed and the change persists
+
+#### Scenario: Empty history falls back to the empty-state
+
+- **WHEN** the Search tab is idle and the history is empty
+- **THEN** the search `EmptyState` is shown instead of the recent-search list

@@ -41,5 +41,11 @@ struct LiquidGlassTabBar<Library: View, Search: View, Settings: View, Accessory:
     .tabViewBottomAccessory {
       bottomAccessory()
     }
+    // The global `AccentColor` asset doesn't drive the Liquid Glass tab bar's
+    // selected-item tint on its own, so apply it explicitly here. Reading the
+    // same `AccentColor` colorset keeps one source of truth (and its light/dark
+    // P3 variants) while also tinting the controls nested in each tab —
+    // Settings pickers, NavigationLink chevrons, the search field.
+    .tint(Color("AccentColor"))
   }
 }

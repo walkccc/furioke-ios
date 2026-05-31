@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// Ambient, blurred album-art wash that sits behind the NowPlaying surface so the
-/// album is *present* without competing with the lyrics. A scrim layered over the
-/// blur keeps foreground lyric text legible over high-contrast art in both light
-/// and dark appearance — the scrim is built from `systemBackground`, so it adapts
-/// automatically.
+/// Reusable ambient, blurred album-art wash that sits behind a surface so the
+/// album is *present* without competing with the foreground content. Used behind
+/// the NowPlaying lyrics and as the Library tab's hero backdrop; it makes no
+/// assumptions about its host. A scrim layered over the blur keeps foreground
+/// text legible over high-contrast art in both light and dark appearance — the
+/// scrim is built from `systemBackground`, so it adapts automatically. With a nil
+/// URL (or under Reduce Transparency) it collapses to the opaque `systemBackground`
+/// base.
 struct ArtworkBackdrop: View {
   let url: URL?
   /// `.glassEffect()` falls back to opaque material on its own under Reduce

@@ -39,37 +39,92 @@ struct LibraryView: View {
     return "Save a song from Search or Now Playing to read along here."
   }
 
+  /// Seeds the ambient hero. The list is most-recent-first, so the first row is
+  /// the freshest save; a nil URL lets `ArtworkBackdrop` fall back to its opaque
+  /// `systemBackground` base.
+  private var backdropArtworkURL: URL? {
+    playableSongs.first?.artworkURL.flatMap(URL.init(string:))
+  }
+
+  /// Hero subtitle: count + active provider. In the non-empty branch a provider
+  /// is always active (it's what scopes `playableSongs`), so the fallback is just
+  /// belt-and-braces.
+  private var headerSubtitle: String {
+    let count = playableSongs.count
+    let unit = count == 1 ? "song" : "songs"
+    if let provider = music.activeProvider {
+      return "\(count) \(unit) · \(provider.displayName)"
+    }
+    return "\(count) \(unit)"
+  }
+
   var body: some View {
-    NavigationStack {
-      Group {
-        if playableSongs.isEmpty {
-          EmptyState(
-            systemImage: "music.note.list",
-            title: "Your Library",
-            message: emptyMessage
-          )
-        } else {
-          List(playableSongs) { song in
-            Button {
-              nowPlaying.play(track: song.asMusicTrack)
-            } label: {
-              RowItem(
-                artworkURL: song.artworkURL.flatMap(URL.init(string:)),
-                title: song.title,
-                subtitle: song.artist
-              )
-            }
-            .buttonStyle(.plain)
-          }
-          .listStyle(.plain)
-        }
-      }
-      .navigationTitle("Library")
+    content
+      // The ambient album-art wash is the whole tab's backdrop, seeded from the
+      // most-recent save — the same primitive Now Playing uses. Replaces the
+      // stock navigation-title chrome with the custom hero below.
+      .background(ArtworkBackdrop(url: backdropArtworkURL))
       // Reconcile the local mirror with the server on activation.
       // Library is the default tab, so this also covers the launch sync; a no-op
       // while offline, where the list renders straight from the cache.
       .task { await library.sync() }
+  }
+
+  @ViewBuilder
+  private var content: some View {
+    if playableSongs.isEmpty {
+      EmptyState(
+        systemImage: "music.note.list",
+        title: "Your Library",
+        message: emptyMessage
+      )
+    } else {
+      List {
+        // The hero scrolls away with the list (first row) so the backdrop gets
+        // room to breathe at the top rather than pinning a bar over it.
+        header
+          .listRowBackground(Color.clear)
+          .listRowSeparator(.hidden)
+          .listRowInsets(EdgeInsets(
+            top: Spacing.l, leading: Spacing.l, bottom: Spacing.s, trailing: Spacing.l
+          ))
+
+        ForEach(playableSongs) { song in
+          Button {
+            nowPlaying.play(track: song.asMusicTrack)
+          } label: {
+            RowItem(
+              artworkURL: song.artworkURL.flatMap(URL.init(string:)),
+              title: song.title,
+              subtitle: song.artist
+            )
+          }
+          .buttonStyle(.plain)
+          // Clear rows so the ambient wash shows through; no dividers for a
+          // cleaner read — the artwork already separates rows visually.
+          .listRowBackground(Color.clear)
+          .listRowSeparator(.hidden)
+        }
+      }
+      .listStyle(.plain)
+      // Drop the list's own background so the backdrop is visible behind it.
+      .scrollContentBackground(.hidden)
+      // The mini-player + tab bar clearance is provided by the system
+      // `tabViewBottomAccessory` safe area; this is just breathing room so the
+      // last row isn't flush against the glass platter.
+      .contentMargins(.bottom, Spacing.m, for: .scrollContent)
     }
+  }
+
+  private var header: some View {
+    VStack(alignment: .leading, spacing: Spacing.xs) {
+      Text("Library")
+        .font(Typography.pageTitle)
+      Text(headerSubtitle)
+        .font(Typography.metadata)
+        .foregroundStyle(.secondary)
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
   }
 }
 

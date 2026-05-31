@@ -47,7 +47,7 @@ struct RowItem<Trailing: View>: View {
     } placeholder: {
       shape.fill(.quaternary)
     }
-    .frame(width: 48, height: 48)
+    .frame(width: 56, height: 56)
     .clipShape(shape)
   }
 }
