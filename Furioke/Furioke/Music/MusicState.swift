@@ -84,6 +84,14 @@ final class MusicState {
     adapter?.provider
   }
 
+  /// The active source's required player surface, or `.none` when nothing is
+  /// active. Feature/view code reads this to decide whether to mount a video
+  /// player — it never branches on a specific provider, and `MusicState` itself
+  /// stays headless (it never references a `WKWebView`).
+  var playerSurface: MusicPlayerSurface {
+    adapter?.playerSurface ?? .none
+  }
+
   /// Providers offered in the Settings picker — only those with a registered
   /// adapter.
   var availableProviders: [MusicProvider] {

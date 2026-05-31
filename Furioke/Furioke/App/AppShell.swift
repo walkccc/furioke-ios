@@ -16,6 +16,7 @@ struct AppShell: View {
   @Environment(MusicState.self) private var music
   @Environment(NowPlayingState.self) private var nowPlaying
   @Environment(LibraryState.self) private var library
+  @Environment(YouTubePlayerController.self) private var youTube
 
   /// Namespace + id pairing the mini-player's `.matchedTransitionSource` with the
   /// NowPlaying cover's `.navigationTransition(.zoom)`, so the whole platter zooms
@@ -107,6 +108,7 @@ struct AppShell: View {
         onPrev: { Task { _ = await music.control(.previous) } },
         onPlayPause: togglePlayPause,
         onNext: { Task { _ = await music.control(.next) } },
+        videoSurface: { videoSurface },
         lyrics: { LyricsView() },
         timeline: { NowPlayingTimeline() }
       )
@@ -127,6 +129,69 @@ struct AppShell: View {
     // A cover presents in a fresh environment branch; re-inject the players.
     .environment(music)
     .environment(nowPlaying)
+    .environment(youTube)
+  }
+
+  /// The embedded video player, mounted only when the active source advertises a
+  /// `.video` surface — decided by capability, never by `provider == .youtube`.
+  /// The IFrame player must stay in the view hierarchy to keep audio alive (a
+  /// removed or zero-size web view suspends YouTube playback), so the video is
+  /// hidden by collapsing the web view to a transparent, non-interactive 1pt
+  /// sliver rather than removing it — the reading-along lyrics own the surface.
+  /// A hard playback failure still surfaces the "View on YouTube" hand-off at
+  /// full size, since the hidden player can't.
+  @ViewBuilder
+  private var videoSurface: some View {
+    if music.playerSurface == .video {
+      VStack(spacing: 0) {
+        videoFallback
+        YouTubePlayerView(controller: youTube)
+          .frame(width: 1, height: 1)
+          .opacity(0.02)
+          .allowsHitTesting(false)
+          .accessibilityHidden(true)
+      }
+    }
+  }
+
+  /// "View on YouTube" fallback, shown only when in-app playback failed hard
+  /// (region lock, embed disabled, removed, or a stall). Because the player is
+  /// otherwise hidden, this stands on its own as a 16:9 banner above the lyrics.
+  /// The watch URL is the track's own `uri`, so this stays gated on the `.video`
+  /// surface above rather than naming a provider.
+  @ViewBuilder
+  private var videoFallback: some View {
+    if let error = music.lastPlaybackError, isHardPlaybackError(error),
+       let track = music.currentTrack, let url = URL(string: track.uri)
+    {
+      ZStack {
+        Color.black.opacity(0.72)
+        Link(destination: url) {
+          Label("View on YouTube", systemImage: "play.rectangle.fill")
+            .font(Typography.metadata)
+            .padding(.horizontal, Spacing.l)
+            .padding(.vertical, Spacing.s)
+            .glassEffect(Materials.controlTier.glass, in: Capsule())
+        }
+        .buttonStyle(.plain)
+      }
+      .aspectRatio(16.0 / 9.0, contentMode: .fit)
+      .frame(maxWidth: .infinity)
+      .clipShape(RoundedRectangle(cornerRadius: Radii.md, style: .continuous))
+      .padding(.horizontal, Spacing.l)
+      .padding(.bottom, Spacing.m)
+    }
+  }
+
+  /// Playback failures with no in-app recovery — the only ones that warrant the
+  /// external hand-off.
+  private func isHardPlaybackError(_ error: MusicError) -> Bool {
+    switch error {
+    case .unplayable, .embedDisabled, .notFound, .regionLocked, .playbackDidNotStart:
+      true
+    default:
+      false
+    }
   }
 
   /// The dimming scrim + floating reading editor, shown while a reading edit is

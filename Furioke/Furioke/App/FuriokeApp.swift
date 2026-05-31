@@ -10,6 +10,10 @@ struct FuriokeApp: App {
   // provider is active.
   @State private var auth: AuthService
   @State private var spotify: SpotifyAdapter
+  /// The YouTube IFrame player bridge, owned here at the composition root and
+  /// injected into both the `YouTubeAdapter` (which drives it) and the NowPlaying
+  /// surface (which mounts its web view). `MusicState` never references it.
+  @State private var youTube: YouTubePlayerController
   @State private var music: MusicState
   @State private var nowPlaying: NowPlayingState
   @State private var preferences: PreferencesState
@@ -27,7 +31,9 @@ struct FuriokeApp: App {
     let auth = AuthService()
     let spotify = SpotifyAdapter()
     let appleMusic = MusicKitAdapter()
-    let music = MusicState(adapters: [spotify, appleMusic])
+    let youTube = YouTubePlayerController()
+    let youTubeAdapter = YouTubeAdapter(controller: youTube)
+    let music = MusicState(adapters: [spotify, appleMusic, youTubeAdapter])
     let network = NetworkMonitor()
     let cache = OfflineCache()
     let preferences = PreferencesState()
@@ -67,6 +73,7 @@ struct FuriokeApp: App {
 
     _auth = State(initialValue: auth)
     _spotify = State(initialValue: spotify)
+    _youTube = State(initialValue: youTube)
     _music = State(initialValue: music)
     _nowPlaying = State(initialValue: nowPlaying)
     _preferences = State(initialValue: preferences)
@@ -81,6 +88,7 @@ struct FuriokeApp: App {
       RootView()
         .environment(auth)
         .environment(music)
+        .environment(youTube)
         .environment(nowPlaying)
         .environment(preferences)
         .environment(network)

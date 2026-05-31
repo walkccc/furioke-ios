@@ -11,7 +11,7 @@ import SwiftUI
 // column is injected as a feature view so the Chrome layer stays
 // feature-agnostic.
 
-struct NowPlayingContent<Lyrics: View, Timeline: View>: View {
+struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
   let title: String
   let artist: String
   let artworkURL: URL?
@@ -47,6 +47,12 @@ struct NowPlayingContent<Lyrics: View, Timeline: View>: View {
   let onPrev: () -> Void
   let onPlayPause: () -> Void
   let onNext: () -> Void
+  /// A visible video player for view-backed sources (YouTube), mounted between the
+  /// header and the lyric column so the lyrics stay the primary reading surface.
+  /// Headless sources inject an `EmptyView`, which takes zero space — keeping this
+  /// chrome feature-agnostic (it never knows which provider, only that *something*
+  /// asked for a surface).
+  @ViewBuilder let videoSurface: () -> Video
   @ViewBuilder let lyrics: () -> Lyrics
   /// The drag-to-seek scrubber and time labels, injected as a feature view so
   /// the high-frequency position ticker stays out of this surface's body and
@@ -60,6 +66,7 @@ struct NowPlayingContent<Lyrics: View, Timeline: View>: View {
   var body: some View {
     VStack(spacing: 0) {
       topChrome
+      videoSurface()
       lyrics()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .mask(edgeFade)
@@ -75,7 +82,6 @@ struct NowPlayingContent<Lyrics: View, Timeline: View>: View {
   /// The top-docked transient toasts, stacked so progress and notice toasts can
   /// coexist without overlapping. All share the one `Toast` style. Animated as a
   /// group since their source state mutates outside an explicit `withAnimation`.
-  @ViewBuilder
   private var topBanners: some View {
     VStack(spacing: Spacing.s) {
       // Computed even when hidden, so only surface progress while furigana is on.

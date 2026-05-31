@@ -49,7 +49,12 @@ nonisolated struct FuriganaPipeline {
       let trimmed = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
       let tokens = trimmed.isEmpty
         ? []
-        : [RubyToken(surface: line.text, reading: nil, wordSurface: line.text, wordReading: line.text)]
+        : [RubyToken(
+          surface: line.text,
+          reading: nil,
+          wordSurface: line.text,
+          wordReading: line.text
+        )]
       return AnnotatedLine(
         timeMs: line.timeMs,
         text: line.text,

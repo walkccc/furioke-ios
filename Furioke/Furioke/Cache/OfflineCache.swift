@@ -29,7 +29,7 @@ final class OfflineCache {
     ])
     let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: inMemory)
     do {
-      self.container = try ModelContainer(for: schema, configurations: configuration)
+      container = try ModelContainer(for: schema, configurations: configuration)
     } catch {
       // A corrupt or migration-incompatible store must never block launch. Fall
       // back to an in-memory store: the cache starts empty and refills online.

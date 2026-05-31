@@ -3,6 +3,7 @@ import Foundation
 nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable {
   case spotify
   case appleMusic = "apple-music"
+  case youtube
 
   var id: String {
     rawValue
@@ -12,6 +13,7 @@ nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable {
     switch self {
     case .spotify: "Spotify"
     case .appleMusic: "Apple Music"
+    case .youtube: "YouTube"
     }
   }
 
@@ -23,8 +25,23 @@ nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable {
     switch self {
     case .spotify: "spotify:track:\(id)"
     case .appleMusic: id
+    // The provider track id for YouTube *is* the video id; the watch URL is the
+    // external hand-off form ("view on YouTube"), while in-app playback loads the
+    // bare video id into the IFrame player.
+    case .youtube: "https://www.youtube.com/watch?v=\(id)"
     }
   }
+}
+
+/// Whether a `MusicSource` requires a visible player surface mounted in the UI.
+/// Headless sources (Spotify drives the out-of-process Spotify app, Apple Music
+/// drives `ApplicationMusicPlayer`) report `.none`; YouTube reports `.video`
+/// because the only ToS-compliant playback route is the IFrame Player rendered in
+/// a visible `WKWebView`. Feature/view code mounts a player by reading this
+/// capability — never by comparing against a specific provider.
+nonisolated enum MusicPlayerSurface: Equatable {
+  case none
+  case video
 }
 
 nonisolated struct MusicTrack: Identifiable, Equatable, Hashable {
@@ -164,6 +181,9 @@ protocol MusicSource: AnyObject {
   var provider: MusicProvider { get }
   var requiresAccount: Bool { get }
   var supportsRepeat: Bool { get }
+  /// Whether this source needs a visible player surface mounted in the UI.
+  /// Defaults to `.none`; only view-backed sources (YouTube) override it.
+  var playerSurface: MusicPlayerSurface { get }
   var updates: AsyncStream<MusicUpdate> { get }
 
   func getConnection() -> MusicConnection
@@ -174,4 +194,12 @@ protocol MusicSource: AnyObject {
   func playTrack(_ track: MusicTrack) async -> Result<Void, MusicError>
   func resolveTracks(ids: [String]) async -> Result<[MusicTrack], MusicError>
   func searchCatalog(query: String, limit: Int) async -> Result<[MusicTrack], MusicError>
+}
+
+extension MusicSource {
+  /// Headless default: Spotify and Apple Music inherit this and need no player
+  /// surface. YouTube overrides it with `.video`.
+  var playerSurface: MusicPlayerSurface {
+    .none
+  }
 }
