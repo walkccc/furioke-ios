@@ -47,6 +47,13 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
   let onPrev: () -> Void
   let onPlayPause: () -> Void
   let onNext: () -> Void
+  /// Whether the bottom control bar (scrubber + transport) should recede behind a
+  /// focus overlay — the reading editor. It gets the same dim/blur/disable the
+  /// lyric column does, so the whole surface (not just the lyrics) reads as
+  /// pushed back behind the floating card. Applies regardless of the edited
+  /// word's kind: a kana-only edit shows no keyboard, so without this the bar
+  /// would stay fully lit beneath the card.
+  let controlsDimmed: Bool
   /// A visible video player for view-backed sources (YouTube), mounted between the
   /// header and the lyric column so the lyrics stay the primary reading surface.
   /// Headless sources inject an `EmptyView`, which takes zero space — keeping this
@@ -325,6 +332,12 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
       }
     }
     .padding(.horizontal, Spacing.xl)
+    // Mirror the lyric column's focus-overlay treatment: dim, blur, and disable
+    // the bar behind the reading editor so a recessed control can't be seeked.
+    .opacity(controlsDimmed ? 0.4 : 1)
+    .blur(radius: controlsDimmed ? 6 : 0)
+    .disabled(controlsDimmed)
+    .animation(Motion.ease, value: controlsDimmed)
   }
 
   /// A transport control wearing an interactive glass disc — raised and

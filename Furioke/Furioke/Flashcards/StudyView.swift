@@ -133,14 +133,17 @@ struct StudyView: View {
   /// meaning and the captured source line.
   @ViewBuilder
   private func reveal(_ card: Flashcard) -> some View {
-    // The kanji is the answer when the prompt showed only the reading.
-    if mode == .hiragana {
+    // The kanji is the answer when the prompt showed only the reading — but a
+    // pure-kana word (no distinct reading) is its own surface, so the prompt
+    // already showed it; nothing to reveal.
+    if mode == .hiragana, card.displayReading != nil {
       Text(card.surface)
         .font(Typography.pageTitle)
     }
-    // The reading is the answer when the prompt showed only the kanji.
-    if mode == .read {
-      Text(card.reading)
+    // The reading is the answer when the prompt showed only the kanji; skip it
+    // when it would just repeat the surface (a pure-kana word).
+    if mode == .read, let reading = card.displayReading {
+      Text(reading)
         .font(Typography.lyricActive)
         .foregroundStyle(.secondary)
     }

@@ -31,6 +31,14 @@ nonisolated struct Flashcard: Equatable, Identifiable {
     surface
   }
 
+  /// The reading worth showing, or nil when it would only repeat the surface. A
+  /// pure-kana saved word (わかる) carries no separate reading; a kanji word
+  /// (続く / つづく) does. Callers drop the furigana row and the reveal's reading
+  /// line when this is nil so the same kana never prints twice over itself.
+  var displayReading: String? {
+    reading == surface ? nil : reading
+  }
+
   /// The meaning gloss for `target` (a translation-target code), or `nil` when
   /// that language has not been fetched yet. Empty strings count as absent.
   func meaning(for target: String) -> String? {

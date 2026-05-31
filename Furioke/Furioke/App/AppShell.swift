@@ -111,6 +111,7 @@ struct AppShell: View {
         onPrev: { Task { _ = await music.control(.previous) } },
         onPlayPause: togglePlayPause,
         onNext: { Task { _ = await music.control(.next) } },
+        controlsDimmed: nowPlaying.editingReading != nil,
         videoSurface: { videoSurface },
         lyrics: { LyricsView() },
         timeline: { NowPlayingTimeline() }
@@ -200,13 +201,15 @@ struct AppShell: View {
   }
 
   /// The dimming scrim + floating reading editor, shown while a reading edit is
-  /// open. The scrim covers the whole surface (tapping it cancels); the card is
-  /// pinned to the bottom and slides up from the keyboard. Save / Cancel route
-  /// back through `NowPlayingState`.
+  /// open. The scrim covers the whole surface (tapping it cancels). A correctable
+  /// (kanji) card is pinned to the bottom and slides up from the keyboard; a
+  /// kana-only card has no keyboard, so it centers vertically and fades in. Save /
+  /// Cancel route back through `NowPlayingState`.
   @ViewBuilder
   private var readingEditorOverlay: some View {
     if let edit = nowPlaying.editingReading {
-      ZStack(alignment: .bottom) {
+      let correctable = FuriganaAnnotator.containsKanji(edit.surface)
+      ZStack(alignment: correctable ? .bottom : .center) {
         Rectangle()
           .fill(.black.opacity(0.18))
           .ignoresSafeArea()
@@ -215,7 +218,7 @@ struct AppShell: View {
           .transition(.opacity)
         ReadingEditorCard(
           surface: edit.surface,
-          correctable: FuriganaAnnotator.containsKanji(edit.surface),
+          correctable: correctable,
           initialReading: edit.reading,
           initialRemember: edit.rememberEverywhere,
           isSavedToDeck: flashcards.isSaved(edit.surface),
@@ -230,8 +233,12 @@ struct AppShell: View {
           }
         )
         .padding(.horizontal, Spacing.l)
-        .padding(.bottom, Spacing.l)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .padding(.bottom, correctable ? Spacing.l : 0)
+        .transition(
+          correctable
+            ? .move(edge: .bottom).combined(with: .opacity)
+            : .opacity
+        )
       }
     }
   }

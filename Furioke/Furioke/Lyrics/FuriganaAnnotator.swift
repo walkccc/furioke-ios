@@ -358,6 +358,20 @@ nonisolated struct FuriganaAnnotator {
     // key an override by it (see `RubyToken`), regardless of how the run is split.
     let wordSurface = surface
     let wordReading = reading
+    // A reading identical to the surface (a pure-kana saved word) has nothing
+    // distinct to stack — emit one plain cell so the ruby row stays empty rather
+    // than printing the kana a second time above itself. The lyric surface never
+    // hits this: it only calls `align` for kanji-bearing runs, whose kana reading
+    // always differs.
+    if reading == surface {
+      return [RubyToken(
+        surface: surface,
+        reading: nil,
+        wordSurface: wordSurface,
+        wordReading: wordReading,
+        saveable: saveable
+      )]
+    }
     let single = [RubyToken(
       surface: surface,
       reading: reading,
