@@ -15,27 +15,23 @@
 			</array>
 		</dict>
 	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
-	<key>NSAppleMusicUsageDescription</key>
-	<string>Furioke uses Apple Music to play your songs and stream lyrics in time with playback.</string>
+	<key>FURIOKE_API_BASE_URL</key>
+	<string>https://furioke.com</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>spotify</string>
 	</array>
-	<key>SUPABASE_URL</key>
-	<string>https://hrzxsnlqhzdlxcgaboqf.supabase.co</string>
-	<key>SUPABASE_ANON_KEY</key>
-	<string>sb_publishable_AgvsbXxiLD0JnteiDzaM-g_lSwU6s2c</string>
 	<key>SPOTIFY_CLIENT_ID</key>
 	<string>446d2b788c074a4fac98ac9a57e95a7e</string>
 	<key>SPOTIFY_REDIRECT_URL</key>
 	<string>furioke://spotify-callback</string>
-	<key>FURIOKE_API_BASE_URL</key>
-	<string>https://furioke.com</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<key>SUPABASE_ANON_KEY</key>
+	<string>sb_publishable_AgvsbXxiLD0JnteiDzaM-g_lSwU6s2c</string>
+	<key>SUPABASE_URL</key>
+	<string>https://hrzxsnlqhzdlxcgaboqf.supabase.co</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+	</array>
 </dict>
 </plist>

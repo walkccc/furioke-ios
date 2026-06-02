@@ -3,10 +3,10 @@ import SwiftUI
 // Title row with an optional trailing action slot.
 
 struct SectionHeader<Trailing: View>: View {
-  private let title: String
+  private let title: LocalizedStringKey
   private let trailing: Trailing
 
-  init(_ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+  init(_ title: LocalizedStringKey, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
     self.title = title
     self.trailing = trailing()
   }

@@ -33,6 +33,14 @@ extension GlassRole {
     case .controlTier: .regular.interactive()
     }
   }
+
+  /// The role's glass, brightened with a white tint when `isActive` so an "on"
+  /// control reads as a lit-up disc/pill rather than a colour change on its glyph
+  /// alone. The single source of the lit-glass idiom shared by the NowPlaying
+  /// display discs and the reading editor's toggles.
+  func glass(active isActive: Bool) -> Glass {
+    isActive ? glass.tint(.white.opacity(0.45)) : glass
+  }
 }
 
 extension OpaqueMaterial {

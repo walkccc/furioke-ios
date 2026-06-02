@@ -42,12 +42,12 @@ struct RowItem<Trailing: View>: View {
   @ViewBuilder
   private var artwork: some View {
     let shape: RoundedRectangle = .init(cornerRadius: Radii.sm, style: .continuous)
-    AsyncImage(url: artworkURL) { image in
+    CachedArtworkImage(url: artworkURL) { image in
       image.resizable().scaledToFill()
     } placeholder: {
       shape.fill(.quaternary)
     }
-    .frame(width: 48, height: 48)
+    .frame(width: 56, height: 56)
     .clipShape(shape)
   }
 }
