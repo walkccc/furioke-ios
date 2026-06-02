@@ -1,11 +1,13 @@
 import Foundation
 
-nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable, Sendable {
+nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable {
   case spotify
-  case appleMusic
+  case appleMusic = "apple-music"
   case youtube
 
-  var id: String { rawValue }
+  var id: String {
+    rawValue
+  }
 
   var displayName: String {
     switch self {
@@ -14,9 +16,49 @@ nonisolated enum MusicProvider: String, CaseIterable, Codable, Identifiable, Sen
     case .youtube: "YouTube"
     }
   }
+
+  /// Reconstruct a playback URI from a stored provider track id. Saved songs (and
+  /// the Supabase `songs` table they mirror) persist only `(provider,
+  /// providerTrackID)` and let the adapter resolve artwork, so the URI is rebuilt
+  /// here when replaying a track from the Library.
+  func playbackURI(forTrackID id: String) -> String {
+    switch self {
+    case .spotify: "spotify:track:\(id)"
+    case .appleMusic: id
+    // The provider track id for YouTube *is* the video id; the watch URL is the
+    // external hand-off form ("view on YouTube"), while in-app playback loads the
+    // bare video id into the IFrame player.
+    case .youtube: "https://www.youtube.com/watch?v=\(id)"
+    }
+  }
+
+  /// Cover art derivable from a provider track id alone, with no network resolve —
+  /// used to seed artwork for a track rebuilt from only `(provider, providerTrackID)`
+  /// (a saved flashcard's source song played via the per-line button). YouTube
+  /// thumbnails are deterministic from the video id (`hqdefault` always exists);
+  /// Spotify and Apple Music expose no such id-derived URL, so they return nil and
+  /// keep relying on their adapters' resolved artwork.
+  func artworkURL(forTrackID id: String) -> URL? {
+    guard !id.isEmpty else { return nil }
+    switch self {
+    case .spotify, .appleMusic: return nil
+    case .youtube: return URL(string: "https://i.ytimg.com/vi/\(id)/hqdefault.jpg")
+    }
+  }
 }
 
-nonisolated struct MusicTrack: Identifiable, Equatable, Hashable, Sendable {
+/// Whether a `MusicSource` requires a visible player surface mounted in the UI.
+/// Headless sources (Spotify drives the out-of-process Spotify app, Apple Music
+/// drives `ApplicationMusicPlayer`) report `.none`; YouTube reports `.video`
+/// because the only ToS-compliant playback route is the IFrame Player rendered in
+/// a visible `WKWebView`. Feature/view code mounts a player by reading this
+/// capability — never by comparing against a specific provider.
+nonisolated enum MusicPlayerSurface: Equatable {
+  case none
+  case video
+}
+
+nonisolated struct MusicTrack: Identifiable, Equatable, Hashable {
   let provider: MusicProvider
   let providerTrackID: String
   let uri: String
@@ -41,12 +83,12 @@ nonisolated struct MusicTrack: Identifiable, Equatable, Hashable, Sendable {
   }
 }
 
-nonisolated struct MusicAccount: Equatable, Sendable {
+nonisolated struct MusicAccount: Equatable {
   let provider: MusicProvider
   let displayName: String
 }
 
-nonisolated enum MusicControl: Equatable, Sendable {
+nonisolated enum MusicControl: Equatable {
   case play
   case pause
   case previous
@@ -54,7 +96,7 @@ nonisolated enum MusicControl: Equatable, Sendable {
   case seek(positionMs: Int)
 }
 
-nonisolated enum MusicError: Error, Equatable, Sendable {
+nonisolated enum MusicError: Error, Equatable {
   case notInstalled
   case userCancelled
   case handshakeTimeout
@@ -85,7 +127,7 @@ nonisolated enum MusicError: Error, Equatable, Sendable {
     case let .providerRejected(message):
       message
     case .unsupported:
-      "This provider doesn't support that action."
+      "This music provider doesn't support that action."
     case .unplayable:
       "This track can't be played."
     case .embedDisabled:
@@ -100,7 +142,7 @@ nonisolated enum MusicError: Error, Equatable, Sendable {
   }
 }
 
-nonisolated enum MusicConnection: Equatable, Sendable {
+nonisolated enum MusicConnection: Equatable {
   case disconnected
   case connecting(MusicProvider)
   case connected(MusicProvider)
@@ -117,7 +159,7 @@ nonisolated enum MusicConnection: Equatable, Sendable {
   }
 }
 
-nonisolated struct MusicUpdate: Equatable, Sendable {
+nonisolated struct MusicUpdate: Equatable {
   let provider: MusicProvider
   let connection: MusicConnection
   let track: MusicTrack?
@@ -128,7 +170,7 @@ nonisolated struct MusicUpdate: Equatable, Sendable {
   let playbackError: MusicError?
 }
 
-nonisolated enum PlaybackSource: Equatable, Sendable {
+nonisolated enum PlaybackSource: Equatable {
   case userInitiated(MusicTrack)
   case observed(MusicTrack)
 
@@ -138,13 +180,14 @@ nonisolated enum PlaybackSource: Equatable, Sendable {
       track
     }
   }
+}
 
-  var labelPrefix: String {
-    switch self {
-    case .userInitiated: "Playing on"
-    case .observed: "Companion"
-    }
-  }
+/// Catalog-search tuning shared across the playback layer and provider adapters.
+nonisolated enum MusicSearch {
+  /// Default `/v1/search` page size. Spotify rejects larger page sizes for the
+  /// App-Remote access token (`400 Invalid limit`), so both the default catalog
+  /// search and artwork resolution cap at this conservative value.
+  static let defaultLimit = 10
 }
 
 @MainActor
@@ -152,6 +195,9 @@ protocol MusicSource: AnyObject {
   var provider: MusicProvider { get }
   var requiresAccount: Bool { get }
   var supportsRepeat: Bool { get }
+  /// Whether this source needs a visible player surface mounted in the UI.
+  /// Defaults to `.none`; only view-backed sources (YouTube) override it.
+  var playerSurface: MusicPlayerSurface { get }
   var updates: AsyncStream<MusicUpdate> { get }
 
   func getConnection() -> MusicConnection
@@ -162,4 +208,12 @@ protocol MusicSource: AnyObject {
   func playTrack(_ track: MusicTrack) async -> Result<Void, MusicError>
   func resolveTracks(ids: [String]) async -> Result<[MusicTrack], MusicError>
   func searchCatalog(query: String, limit: Int) async -> Result<[MusicTrack], MusicError>
+}
+
+extension MusicSource {
+  /// Headless default: Spotify and Apple Music inherit this and need no player
+  /// surface. YouTube overrides it with `.video`.
+  var playerSurface: MusicPlayerSurface {
+    .none
+  }
 }
