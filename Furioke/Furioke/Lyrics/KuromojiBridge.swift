@@ -20,6 +20,11 @@ actor KuromojiBridge {
     let surface: String
     /// kuromoji's per-token reading in katakana, or nil when it has none.
     let reading: String?
+    /// IPADIC part-of-speech major class (品詞), e.g. 動詞 / 形容詞 / 助動詞 / 助詞.
+    let pos: String
+    /// IPADIC part-of-speech subclass (品詞細分類1), e.g. 接続助詞. Used together
+    /// with `pos` to merge inflectional suffixes back onto their head verb.
+    let posDetail1: String
   }
 
   nonisolated enum Error: Swift.Error {
@@ -58,7 +63,7 @@ actor KuromojiBridge {
     try checkException(context, stage: "tokenize")
     let json = result?.toString() ?? "[]"
     let raw = try JSONDecoder().decode([RawToken].self, from: Data(json.utf8))
-    return raw.map { Token(surface: $0.s, reading: $0.r) }
+    return raw.map { Token(surface: $0.s, reading: $0.r, pos: $0.p, posDetail1: $0.d) }
   }
 
   /// Releases the JSContext (~30–50MB with the parsed dict). The next tokenize
@@ -172,6 +177,8 @@ actor KuromojiBridge {
   private nonisolated struct RawToken: Decodable {
     let s: String
     let r: String?
+    let p: String
+    let d: String
   }
 
   // MARK: - Injected JavaScript
@@ -223,7 +230,12 @@ actor KuromojiBridge {
     var tokens = __kuromojiTokenizer.tokenize(line);
     var out = [];
     for (var i = 0; i < tokens.length; i++) {
-      out.push({ s: tokens[i].surface_form, r: tokens[i].reading });
+      out.push({
+        s: tokens[i].surface_form,
+        r: tokens[i].reading,
+        p: tokens[i].pos || '',
+        d: tokens[i].pos_detail_1 || '',
+      });
     }
     return JSON.stringify(out);
   }
