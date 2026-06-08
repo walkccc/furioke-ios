@@ -1,9 +1,9 @@
 import SwiftUI
 
 /// Search the active connected provider's catalog and tap a result to play.
-/// Input is debounced ~300ms so a typing user produces at most one request after
-/// they pause; clearing the field empties the results immediately. Tapping a
-/// result routes through `NowPlayingState.play(track:)` — no tab switch.
+/// A request fires only when the user submits the field (Search key), so typing
+/// produces no API calls; clearing the field empties the results immediately.
+/// Tapping a result routes through `NowPlayingState.play(track:)` — no tab switch.
 struct SearchView: View {
   /// Switch to the Settings tab. The disconnected empty state and the search bar
   /// itself route here, so a tap always leads somewhere a provider can be
@@ -51,10 +51,14 @@ struct SearchView: View {
 
       content
     }
-    // `.task(id:)` re-runs and cancels the prior task on every keystroke, so the
-    // 300ms sleep only elapses once the user pauses — the debounce. An empty
-    // field clears results without scheduling a request.
-    .task(id: query) { await debouncedSearch() }
+    // Emptying the field resets to the idle state without firing a request; an
+    // actual search only happens on submit (see the field's `.onSubmit`).
+    .onChange(of: query) { _, newValue in
+      if newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        results = []
+        phase = .idle
+      }
+    }
   }
 
   /// Custom glass search field, replacing `.searchable` so the rounded title can
@@ -72,7 +76,10 @@ struct SearchView: View {
       .autocorrectionDisabled()
       .submitLabel(.search)
       .focused($searchFocused)
-      .onSubmit { addRecentSearch(query) }
+      .onSubmit {
+        addRecentSearch(query)
+        Task { await runSearch() }
+      }
       if !query.isEmpty {
         Button {
           query = ""
@@ -176,6 +183,9 @@ struct SearchView: View {
         ForEach(recentSearches, id: \.self) { term in
           Button {
             query = term
+            addRecentSearch(term)
+            searchFocused = false
+            Task { await runSearch() }
           } label: {
             Label(term, systemImage: "clock.arrow.circlepath")
               .font(Typography.body)

@@ -555,21 +555,33 @@ final class NowPlayingState {
         sourceText: sourceText
       ) {
         if Task.isCancelled { return }
-        self.applyTranslation(event, lineCount: sourceLines.count)
+        self.applyTranslation(event, sourceTexts: sourceLines.map(\.text))
       }
     }
   }
 
-  private func applyTranslation(_ event: CacheLoad<TranslationPayload>, lineCount: Int) {
+  private func applyTranslation(_ event: CacheLoad<TranslationPayload>, sourceTexts: [String]) {
     switch event {
     case let .value(payload):
-      // The response carries one line per input line; align to the lyric lines by
-      // index, padding/truncating defensively if the counts drift.
-      var translated = payload.bodyJson.components(separatedBy: "\n")
-      if translated.count < lineCount {
-        translated += Array(repeating: "", count: lineCount - translated.count)
+      // Align by non-empty line order, not by raw index. The translate API
+      // trims the lyrics (dropping leading/trailing blank lines and per-line
+      // whitespace) before sending them to the model, so the response can
+      // disagree with the source on blank-line count or position. Indexing by
+      // raw position then shifts every translation down by one. Instead, hand
+      // each non-empty source line the next non-empty translation line; blank
+      // source lines carry no translation and never consume a slot.
+      let translatedLineQueue = payload.bodyJson
+        .components(separatedBy: "\n")
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        .filter { !$0.isEmpty }
+      var nextTranslation = 0
+      translatedLines = sourceTexts.map { text in
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+          nextTranslation < translatedLineQueue.count
+        else { return "" }
+        defer { nextTranslation += 1 }
+        return translatedLineQueue[nextTranslation]
       }
-      translatedLines = Array(translated.prefix(lineCount))
       translationStatus = .loaded
     case .unavailableOffline:
       revertTranslation(to: .unavailableOffline)
