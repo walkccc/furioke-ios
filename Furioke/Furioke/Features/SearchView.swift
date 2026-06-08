@@ -236,26 +236,23 @@ struct SearchView: View {
     recentSearchesRaw = ""
   }
 
-  private func debouncedSearch() async {
+  /// Fire a single catalog request for the current query. Invoked only on an
+  /// explicit submit — there is no per-keystroke auto-search — so each call is one
+  /// deliberate API request.
+  private func runSearch() async {
     let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else {
       results = []
       phase = .idle
       return
     }
-    // A fresh keystroke cancels this task during the sleep, coalescing a burst of
-    // typing into a single request once the user stops for ~300ms.
-    try? await Task.sleep(for: .milliseconds(300))
-    guard !Task.isCancelled else { return }
 
     phase = .searching
     switch await music.search(trimmed) {
     case let .success(tracks):
-      guard !Task.isCancelled else { return }
       results = tracks
       phase = tracks.isEmpty ? .empty : .results
     case let .failure(error):
-      guard !Task.isCancelled else { return }
       phase = .failed(error.userMessage ?? "Something went wrong.")
     }
   }
