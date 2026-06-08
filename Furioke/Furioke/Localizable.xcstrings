@@ -581,6 +581,22 @@
         }
       }
     },
+    "Community" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コミュニティ"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "社群"
+          }
+        }
+      }
+    },
     "Connect a music provider" : {
       "localizations" : {
         "ja" : {
@@ -1180,6 +1196,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "漢字附假名"
+          }
+        }
+      }
+    },
+    "Join Discord" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Discord に参加"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入 Discord"
           }
         }
       }

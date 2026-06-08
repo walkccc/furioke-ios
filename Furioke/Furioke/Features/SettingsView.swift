@@ -42,6 +42,7 @@ struct SettingsView: View {
           musicSection
           languageSection
           customizationSection
+          communitySection
           // Theme sits last among the cards: it's the least consequential
           // preference, so it floats below the more frequently used sections.
           themeSection
@@ -593,5 +594,56 @@ struct SettingsView: View {
     .buttonStyle(.plain)
     .foregroundStyle(.primary)
     .accessibilityLabel("Replay Tutorial")
+  }
+
+  // MARK: - Community
+
+  /// The Discord brand blurple, shared by the icon tile so the community row
+  /// carries Discord's own colour rather than the app accent.
+  private static let discordBlurple = Color(red: 0x58 / 255, green: 0x65 / 255, blue: 0xF2 / 255)
+
+  /// The single source of truth for the community invite, mirroring the web
+  /// app's `DISCORD_INVITE_URL`.
+  private static let discordInviteURL = URL(string: "https://discord.gg/YaS5yrtg")!
+
+  /// The community section: a single "Join Discord" row that opens the invite in
+  /// the browser. A `Link` (not a `Button`) so it reads as an outward navigation
+  /// and hands the URL straight to the system, matching the app's other external
+  /// links.
+  private var communitySection: some View {
+    sectionCard("Community") {
+      Link(destination: Self.discordInviteURL) {
+        HStack(spacing: Spacing.m) {
+          discordIconTile
+          Text("Join Discord")
+            .font(Typography.body)
+          Spacer(minLength: 0)
+          Image(systemName: "arrow.up.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(.tertiary)
+        }
+        .contentShape(Rectangle())
+      }
+      .buttonStyle(.plain)
+      .foregroundStyle(.primary)
+      .accessibilityLabel("Join Discord")
+    }
+  }
+
+  /// Leading tile for the Discord row: the white Discord glyph on a blurple
+  /// rounded square, matching the size of the SF Symbol `iconTile`s while wearing
+  /// Discord's brand colour the way iOS Settings renders third-party app rows.
+  private var discordIconTile: some View {
+    RoundedRectangle(cornerRadius: Radii.md, style: .continuous)
+      .fill(Self.discordBlurple)
+      .frame(width: iconTileSize, height: iconTileSize)
+      .overlay {
+        Image("DiscordIcon")
+          .renderingMode(.original)
+          .resizable()
+          .scaledToFit()
+          .frame(width: 18, height: 18)
+      }
+      .accessibilityHidden(true)
   }
 }
