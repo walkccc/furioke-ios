@@ -1,0 +1,11 @@
+DerivedData
+.build
+.swiftpm
+Pods
+Carthage
+fastlane/report.xml
+fastlane/Preview.html
+*.xcodeproj
+*.xcworkspace
+*.xcuserstate
+*.pbxproj
