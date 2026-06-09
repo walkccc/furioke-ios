@@ -29,9 +29,5 @@
 	<string>sb_publishable_AgvsbXxiLD0JnteiDzaM-g_lSwU6s2c</string>
 	<key>SUPABASE_URL</key>
 	<string>https://hrzxsnlqhzdlxcgaboqf.supabase.co</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>audio</string>
-	</array>
 </dict>
 </plist>
