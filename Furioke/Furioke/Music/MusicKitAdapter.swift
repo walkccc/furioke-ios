@@ -19,6 +19,8 @@ final class MusicKitAdapter: MusicSource {
   let provider: MusicProvider = .appleMusic
   let requiresAccount = true
   let supportsRepeat = true
+  /// MusicKit's ApplicationMusicPlayer exposes no playback-rate control.
+  let supportsPlaybackRate = false
 
   // MARK: Update stream
 
@@ -104,6 +106,7 @@ final class MusicKitAdapter: MusicSource {
   // MARK: Transport (play in-app)
 
   func control(_ control: MusicControl) async -> Result<Void, MusicError> {
+    if case .setPlaybackRate = control { return .failure(.unsupported) }
     let player = ApplicationMusicPlayer.shared
     do {
       switch control {
@@ -121,6 +124,8 @@ final class MusicKitAdapter: MusicSource {
         // (e.g. a pause/play). Emit the requested position now so the seek is
         // reflected immediately — matching how Spotify's SDK re-publishes on seek.
         emitCurrent(positionMs: positionMs)
+      // Rejected above; handled here only for switch exhaustiveness.
+      case .setPlaybackRate: return .failure(.unsupported)
       }
       return .success(())
     } catch {
@@ -227,7 +232,8 @@ final class MusicKitAdapter: MusicSource {
       durationMs: durationMs,
       isPlaying: isPlaying,
       playbackMode: "native-musickit",
-      playbackError: nil
+      playbackError: nil,
+      playbackRate: 1
     )
     updatesContinuation?.yield(update)
   }

@@ -152,6 +152,11 @@ struct AppShell: View {
         // sign-in prompt and the toggle does not flip on.
         onToggleTranslation: { if auth.requirePermanentAccount() { nowPlaying.toggleTranslation() }
         },
+        supportsPlaybackRate: music.supportsPlaybackRate,
+        playbackRate: music.playbackRate,
+        onSetPlaybackRate: { rate in
+          Task { _ = await music.control(.setPlaybackRate(rate: rate)) }
+        },
         furiganaLoading: nowPlaying.furiganaLoading,
         translationLoading: nowPlaying.isTranslating,
         translationNotice: nowPlaying.translationNoticeText,

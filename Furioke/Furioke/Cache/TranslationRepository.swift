@@ -41,8 +41,8 @@ final class TranslationRepository {
         fetchedAt: $0.generatedAt
       )
     }
-    let service = self.service
-    let cache = self.cache
+    let service = service
+    let cache = cache
     let modelVersion = TranslationService.modelVersion
     return ReadThroughCache.load(
       isOnline: network.isOnline,

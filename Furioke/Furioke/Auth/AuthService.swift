@@ -125,9 +125,9 @@ final class AuthService {
   private func observeAuthState() {
     authStateTask = Task { [weak self] in
       guard let client = self?.client else { return }
-      for await(event, session) in client.auth.authStateChanges {
+      for await (event, session) in client.auth.authStateChanges {
         guard !Task.isCancelled, let self else { break }
-        self.apply(event: event, session: session)
+        apply(event: event, session: session)
       }
     }
   }

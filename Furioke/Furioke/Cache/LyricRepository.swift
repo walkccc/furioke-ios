@@ -21,8 +21,8 @@ final class LyricRepository {
     let cached = cache.lyricBody(forSongID: track.id).map {
       (value: LyricFetchResult(body: $0.bodyText, lrclibID: $0.lrclibID), fetchedAt: $0.fetchedAt)
     }
-    let service = self.service
-    let cache = self.cache
+    let service = service
+    let cache = cache
     let songID = track.id
     return ReadThroughCache.load(
       isOnline: network.isOnline,

@@ -29,7 +29,7 @@ nonisolated struct CorrectionMap {
       merged[surface] = reading
     }
     entries = merged
-    maxKeyLength = merged.keys.map { $0.utf16.count }.max() ?? 0
+    maxKeyLength = merged.keys.map(\.utf16.count).max() ?? 0
   }
 
   /// The corrected reading for an exact surface, or nil when nothing maps it.

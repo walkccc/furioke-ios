@@ -179,15 +179,15 @@ nonisolated struct FuriganaAnnotator {
     switch token.pos {
     case "名詞":
       switch token.posDetail1 {
-      case "非自立", "接尾", "数", "代名詞": return false
-      default: return true
+      case "非自立", "接尾", "数", "代名詞": false
+      default: true
       }
     case "動詞", "形容詞":
-      return token.posDetail1 != "非自立"
+      token.posDetail1 != "非自立"
     case "副詞":
-      return true
+      true
     default:
-      return false
+      false
     }
   }
 

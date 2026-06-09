@@ -15,15 +15,15 @@ struct ReadingEdit: Equatable {
   /// The lyric line the word was long-pressed in, pipe-encoded
   /// (`SourceLineCodec`), so a flashcard captured from this editor keeps its
   /// source context. Nil when the line is unknown.
-  var sourceLine: String? = nil
+  var sourceLine: String?
   /// The long-pressed line's start time (ms) for synced lyrics, so a captured
   /// flashcard can later seek the player to it. Nil for plain (un-timed) lyrics
   /// or an unknown line.
-  var sourceLineStartMs: Int? = nil
+  var sourceLineStartMs: Int?
   /// The next timed line's start (ms) — the long-pressed line's end — so a
   /// captured flashcard can play just that line. Nil for the last line or plain
   /// lyrics.
-  var sourceLineEndMs: Int? = nil
+  var sourceLineEndMs: Int?
 }
 
 /// Owns the NowPlaying lyric surface and the single seam from Library / Search
@@ -191,8 +191,8 @@ final class NowPlayingState {
     } onChange: {
       Task { @MainActor [weak self] in
         guard let self else { return }
-        self.handleCurrentTrackChange()
-        self.observeCurrentTrack()
+        handleCurrentTrackChange()
+        observeCurrentTrack()
       }
     }
   }
@@ -238,9 +238,9 @@ final class NowPlayingState {
 
     loadTask = Task { [weak self] in
       guard let self else { return }
-      for await event in self.repository.load(for: track) {
+      for await event in repository.load(for: track) {
         if Task.isCancelled { return }
-        self.apply(event)
+        apply(event)
       }
     }
   }
@@ -421,13 +421,13 @@ final class NowPlayingState {
       do {
         let annotated = try await annotator.annotate(lrcBody: body, corrections: corrections)
         guard !Task.isCancelled else { return }
-        self.lines = annotated
-        self.furiganaLoading = false
-        if reloadsTranslation, self.showTranslation { self.loadTranslation() }
+        lines = annotated
+        furiganaLoading = false
+        if reloadsTranslation, showTranslation { loadTranslation() }
       } catch {
         // Tokenization failed — the plain lines are still on screen and readable,
         // so just drop the indicator rather than blanking the surface.
-        if !Task.isCancelled { self.furiganaLoading = false }
+        if !Task.isCancelled { furiganaLoading = false }
       }
     }
   }
@@ -482,8 +482,8 @@ final class NowPlayingState {
     } onChange: {
       Task { @MainActor [weak self] in
         guard let self else { return }
-        if self.network.isOnline { await self.syncPendingOverrides() }
-        self.observeReconnect()
+        if network.isOnline { await syncPendingOverrides() }
+        observeReconnect()
       }
     }
   }
@@ -500,13 +500,13 @@ final class NowPlayingState {
     } onChange: {
       Task { @MainActor [weak self] in
         guard let self else { return }
-        if self.showTranslation {
+        if showTranslation {
           // Drop the stale lines so the previous language's text doesn't linger
           // behind the loading state while the new target is fetched.
-          self.translatedLines = []
-          self.loadTranslation()
+          translatedLines = []
+          loadTranslation()
         }
-        self.observeLanguage()
+        observeLanguage()
       }
     }
   }
@@ -549,13 +549,13 @@ final class NowPlayingState {
     translationStatus = .loading
     translationTask = Task { [weak self] in
       guard let self else { return }
-      for await event in self.translation.load(
+      for await event in translation.load(
         songID: track.id,
         language: target,
         sourceText: sourceText
       ) {
         if Task.isCancelled { return }
-        self.applyTranslation(event, sourceTexts: sourceLines.map(\.text))
+        applyTranslation(event, sourceTexts: sourceLines.map(\.text))
       }
     }
   }
@@ -577,7 +577,7 @@ final class NowPlayingState {
       var nextTranslation = 0
       translatedLines = sourceTexts.map { text in
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-          nextTranslation < translatedLineQueue.count
+              nextTranslation < translatedLineQueue.count
         else { return "" }
         defer { nextTranslation += 1 }
         return translatedLineQueue[nextTranslation]
@@ -600,7 +600,7 @@ final class NowPlayingState {
     noticeResetTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(3))
       guard let self, !Task.isCancelled else { return }
-      if self.translationStatus == status { self.translationStatus = .idle }
+      if translationStatus == status { translationStatus = .idle }
     }
   }
 }

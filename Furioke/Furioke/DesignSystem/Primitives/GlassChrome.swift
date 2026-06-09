@@ -20,9 +20,9 @@ struct GlassChrome<Content: View>: View {
     )
   }
 
-  init<S: Shape>(
+  init(
     role: GlassRole,
-    in shape: S,
+    in shape: some Shape,
     @ViewBuilder content: () -> Content
   ) {
     self.role = role

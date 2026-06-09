@@ -199,7 +199,7 @@ private struct SurfaceHeightKey: PreferenceKey {
 struct PlayableSourceLine<Caption: View>: View {
   let card: Flashcard
   let tokens: [RubyToken]
-  var highlightWord: String? = nil
+  var highlightWord: String?
   var buttonSize: CGFloat = 24
   var spacing: CGFloat = Spacing.m
   var surfaceFont: Font = Typography.body

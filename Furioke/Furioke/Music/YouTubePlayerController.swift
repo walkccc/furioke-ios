@@ -95,6 +95,14 @@ final class YouTubePlayerController: NSObject {
     eval("seekTo(\(seconds))")
   }
 
+  /// Set the IFrame player's playback rate. Calls `window.player.setPlaybackRate`
+  /// directly (like `stop()`), so the remote embed host page needs no helper.
+  func setPlaybackRate(_ rate: Double) {
+    eval(
+      "if (window.player && window.player.setPlaybackRate) { window.player.setPlaybackRate(\(rate)); }"
+    )
+  }
+
   /// Stop playback and the poll. Called on provider switch / disconnect so no
   /// hidden web player keeps running once YouTube is no longer the active source.
   func stop() {
@@ -113,7 +121,7 @@ final class YouTubePlayerController: NSObject {
     pollTask = Task { [weak self] in
       while !Task.isCancelled {
         guard let self else { return }
-        await self.pollTime()
+        await pollTime()
         try? await Task.sleep(for: .milliseconds(400))
       }
     }

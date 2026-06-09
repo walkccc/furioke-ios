@@ -236,7 +236,7 @@ final class OfflineCache {
       predicate: #Predicate { $0.userID == userID && $0.source == deletedSource }
     )
     let rows = (try? context.fetch(descriptor)) ?? []
-    return rows.map { $0.surface }
+    return rows.map(\.surface)
   }
 
   /// Record (or update) a personal override locally. An inline-editor edit writes
@@ -478,7 +478,7 @@ final class OfflineCache {
       predicate: #Predicate { $0.userID == userID && $0.source == deleted }
     )
     let rows = (try? context.fetch(descriptor)) ?? []
-    return rows.map { $0.surface }
+    return rows.map(\.surface)
   }
 
   /// Reconcile the local deck with the server's `flashcards` rows, last-writer-wins

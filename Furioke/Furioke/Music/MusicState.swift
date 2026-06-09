@@ -19,6 +19,10 @@ final class MusicState {
   private(set) var durationMs = 0
   private(set) var isPlaying = false
   private(set) var playbackMode: String?
+  /// The active source's current playback rate (1 = normal). Scales position
+  /// interpolation so the scrubber and active-line highlight track the audio at
+  /// non-1× rates, and drives the speed control's selected option.
+  private(set) var playbackRate = MusicPlaybackRate.default
 
   /// The most recent mid-session failure carried on a `MusicUpdate`, for feature
   /// views to render a toast against.
@@ -92,6 +96,12 @@ final class MusicState {
     adapter?.playerSurface ?? .none
   }
 
+  /// Whether the active source can change playback rate — drives whether the
+  /// NowPlaying surface offers the speed control. False when no provider is active.
+  var supportsPlaybackRate: Bool {
+    adapter?.supportsPlaybackRate ?? false
+  }
+
   /// Providers offered in the Settings picker — only those with a registered
   /// adapter.
   var availableProviders: [MusicProvider] {
@@ -146,6 +156,7 @@ final class MusicState {
     durationMs = 0
     isPlaying = false
     playbackMode = nil
+    playbackRate = MusicPlaybackRate.default
     lastPlaybackError = nil
   }
 
@@ -154,7 +165,7 @@ final class MusicState {
     observeTask = Task { [weak self, updates = adapter.updates] in
       for await update in updates {
         guard let self else { break }
-        self.apply(update)
+        apply(update)
       }
     }
   }
@@ -175,6 +186,7 @@ final class MusicState {
     durationMs = update.durationMs
     isPlaying = update.isPlaying
     playbackMode = update.playbackMode
+    playbackRate = update.playbackRate
     if let error = update.playbackError { setPlaybackError(error) }
     // Re-anchor interpolation to this authoritative position, then (re)arm the
     // ticker for the current play/pause state.
@@ -194,10 +206,12 @@ final class MusicState {
     positionTicker = Task { [weak self] in
       while !Task.isCancelled {
         try? await Task.sleep(for: .milliseconds(250))
-        guard let self, self.isPlaying else { return }
-        let elapsed = Int(Date().timeIntervalSince(self.anchorAt) * 1_000)
-        let projected = self.anchorPositionMs + elapsed
-        self.positionMs = self.durationMs > 0 ? min(projected, self.durationMs) : projected
+        guard let self, isPlaying else { return }
+        // Scale elapsed wall-clock by the playback rate so the projected position
+        // advances at the audio's true rate (e.g. half as fast at 0.5×).
+        let elapsed = Date().timeIntervalSince(anchorAt) * 1_000 * playbackRate
+        let projected = anchorPositionMs + Int(elapsed)
+        positionMs = durationMs > 0 ? min(projected, durationMs) : projected
       }
     }
   }
@@ -216,6 +230,8 @@ final class MusicState {
     currentTrack = track
     durationMs = track.durationMs
     isPlaying = true
+    // A freshly user-started track always begins at normal speed.
+    playbackRate = MusicPlaybackRate.default
     anchor(positionMs: 0)
     syncPositionTicker()
   }
@@ -239,11 +255,12 @@ final class MusicState {
     // explicit resume of the still-shown track, reconnect-and-play in one step
     // (each adapter's `playTrack` re-establishes the session) rather than no-op.
     // User-action only — never a background auto-connect.
-    let result: Result<Void, MusicError>
-    if case .play = control, !isConnected, let track = currentTrack {
-      result = await adapter.playTrack(track)
+    let result: Result<Void, MusicError> = if case .play = control, !isConnected,
+                                              let track = currentTrack
+    {
+      await adapter.playTrack(track)
     } else {
-      result = await adapter.control(control)
+      await adapter.control(control)
     }
     reconcile(control, result)
     return result
@@ -301,7 +318,7 @@ final class MusicState {
     errorResetTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(4))
       guard let self, !Task.isCancelled else { return }
-      self.lastPlaybackError = nil
+      lastPlaybackError = nil
     }
   }
 

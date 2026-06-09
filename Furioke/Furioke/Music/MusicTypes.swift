@@ -94,6 +94,16 @@ nonisolated enum MusicControl: Equatable {
   case previous
   case next
   case seek(positionMs: Int)
+  case setPlaybackRate(rate: Double)
+}
+
+/// Playback-rate options offered by the speed control, in display order. A fixed
+/// list (rather than the player's reported available rates) keeps the UI stable;
+/// every value is within YouTube's supported 0.25–2× range. Tracks start at
+/// `defaultPlaybackRate`.
+nonisolated enum MusicPlaybackRate {
+  static let options: [Double] = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2]
+  static let `default`: Double = 1
 }
 
 nonisolated enum MusicError: Error, Equatable {
@@ -168,6 +178,10 @@ nonisolated struct MusicUpdate: Equatable {
   let isPlaying: Bool
   let playbackMode: String?
   let playbackError: MusicError?
+  /// The source's current playback rate (1 = normal). Headless sources that can't
+  /// change rate emit 1.0; consumers scale position interpolation by this so the
+  /// scrubber and active-line highlight track the audio at non-1× rates.
+  let playbackRate: Double
 }
 
 nonisolated enum PlaybackSource: Equatable {
@@ -195,6 +209,9 @@ protocol MusicSource: AnyObject {
   var provider: MusicProvider { get }
   var requiresAccount: Bool { get }
   var supportsRepeat: Bool { get }
+  /// Whether this source can change the active track's playback rate. When false,
+  /// the speed control is not offered for this provider.
+  var supportsPlaybackRate: Bool { get }
   /// Whether this source needs a visible player surface mounted in the UI.
   /// Defaults to `.none`; only view-backed sources (YouTube) override it.
   var playerSurface: MusicPlayerSurface { get }

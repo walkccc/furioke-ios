@@ -17,6 +17,7 @@ final class YouTubeAdapter: MusicSource {
   // IFrame loop is not wired in v1; the transport bar's repeat affordance stays
   // disabled like any unsupported control.
   let supportsRepeat = false
+  let supportsPlaybackRate = true
   let playerSurface: MusicPlayerSurface = .video
 
   /// Vends a fresh stream on every access (mirrors `MusicKitAdapter`): `MusicState`
@@ -38,6 +39,7 @@ final class YouTubeAdapter: MusicSource {
   private var positionMs = 0
   private var durationMs = 0
   private var isPlaying = false
+  private var playbackRate = MusicPlaybackRate.default
 
   /// The id of a video whose playback we're waiting to confirm (`.playing` not yet
   /// seen). Cleared on `.playing`, on error, or on the 3s start-timeout. Drives the
@@ -89,7 +91,11 @@ final class YouTubeAdapter: MusicSource {
     positionMs = 0
     durationMs = track.durationMs
     isPlaying = false
+    // A fresh track always starts at normal speed — YouTube otherwise carries the
+    // previous video's rate across a load.
+    playbackRate = MusicPlaybackRate.default
     controller.load(videoId: track.providerTrackID)
+    controller.setPlaybackRate(MusicPlaybackRate.default)
     armStartTimeout(for: track.providerTrackID)
     return .success(())
   }
@@ -103,6 +109,10 @@ final class YouTubeAdapter: MusicSource {
     case let .seek(positionMs):
       controller.seek(seconds: Double(positionMs) / 1_000)
       self.positionMs = positionMs
+      emitCurrent()
+    case let .setPlaybackRate(rate):
+      playbackRate = rate
+      controller.setPlaybackRate(rate)
       emitCurrent()
     case .previous, .next:
       // No queue concept for a single embedded video.
@@ -146,9 +156,9 @@ final class YouTubeAdapter: MusicSource {
     controller.onError = { [weak self] code in self?.handle(errorCode: code) }
     controller.onTimeUpdate = { [weak self] current, duration in
       guard let self else { return }
-      self.positionMs = Int(current * 1_000)
-      if duration > 0 { self.durationMs = Int(duration * 1_000) }
-      self.emitCurrent()
+      positionMs = Int(current * 1_000)
+      if duration > 0 { durationMs = Int(duration * 1_000) }
+      emitCurrent()
     }
   }
 
@@ -185,13 +195,12 @@ final class YouTubeAdapter: MusicSource {
   }
 
   private func handle(errorCode code: Int) {
-    let error: MusicError
-    switch code {
-    case 2: error = .unplayable
-    case 5: error = .embedDisabled
-    case 100: error = .notFound
-    case 101, 150: error = .regionLocked
-    default: error = .playbackDidNotStart
+    let error: MusicError = switch code {
+    case 2: .unplayable
+    case 5: .embedDisabled
+    case 100: .notFound
+    case 101, 150: .regionLocked
+    default: .playbackDidNotStart
     }
 
     let deadVideoId = pendingVideoId ?? currentTrack?.providerTrackID
@@ -222,13 +231,13 @@ final class YouTubeAdapter: MusicSource {
     startTimeoutTask?.cancel()
     startTimeoutTask = Task { [weak self] in
       try? await Task.sleep(for: .seconds(3))
-      guard let self, !Task.isCancelled, self.pendingVideoId == videoId else { return }
-      self.pendingVideoId = nil
-      self.isPlaying = false
-      self.emit(
-        track: self.currentTrack,
+      guard let self, !Task.isCancelled, pendingVideoId == videoId else { return }
+      pendingVideoId = nil
+      isPlaying = false
+      emit(
+        track: currentTrack,
         positionMs: 0,
-        durationMs: self.durationMs,
+        durationMs: durationMs,
         isPlaying: false,
         error: .playbackDidNotStart
       )
@@ -236,7 +245,7 @@ final class YouTubeAdapter: MusicSource {
       // region-locked straggler whose in-player overlay (e.g. "Error code:
       // 152") never reaches `onError`. Treat it like a dead id so the next
       // identical search re-resolves instead of re-serving the same broken one.
-      self.markVideoDead(videoId)
+      markVideoDead(videoId)
     }
   }
 
@@ -269,7 +278,8 @@ final class YouTubeAdapter: MusicSource {
       durationMs: durationMs,
       isPlaying: isPlaying,
       playbackMode: "youtube-iframe",
-      playbackError: error
+      playbackError: error,
+      playbackRate: playbackRate
     )
     updatesContinuation?.yield(update)
   }

@@ -19,6 +19,8 @@ final class SpotifyAdapter: NSObject, MusicSource {
   let provider: MusicProvider = .spotify
   let requiresAccount = true
   let supportsRepeat = true
+  /// Spotify's iOS SDK exposes no playback-rate control.
+  let supportsPlaybackRate = false
 
   /// Vends a *fresh* stream on every access, rebinding `updatesContinuation` to the
   /// new consumer. `MusicState` re-subscribes every time a provider is (re)selected,
@@ -230,6 +232,7 @@ final class SpotifyAdapter: NSObject, MusicSource {
   // MARK: Transport
 
   func control(_ control: MusicControl) async -> Result<Void, MusicError> {
+    if case .setPlaybackRate = control { return .failure(.unsupported) }
     guard let player = appRemote.playerAPI else { return .failure(.needsReconnect) }
     return await withCheckedContinuation { continuation in
       let handler: (Any?, (any Error)?) -> Void = { _, error in
@@ -245,6 +248,9 @@ final class SpotifyAdapter: NSObject, MusicSource {
       case .previous: player.skip(toPrevious: handler)
       case .next: player.skip(toNext: handler)
       case let .seek(positionMs): player.seek(toPosition: positionMs, callback: handler)
+      // Rejected before reaching the player above; handled here only for switch
+      // exhaustiveness.
+      case .setPlaybackRate: continuation.resume(returning: .failure(.unsupported))
       }
     }
   }
@@ -354,7 +360,8 @@ final class SpotifyAdapter: NSObject, MusicSource {
       durationMs: durationMs,
       isPlaying: isPlaying,
       playbackMode: "native-sdk",
-      playbackError: error
+      playbackError: error,
+      playbackRate: 1
     )
     updatesContinuation?.yield(update)
   }
@@ -407,7 +414,7 @@ final class SpotifyAdapter: NSObject, MusicSource {
       // unlike the search path's `.userInitiated` source — so this is its *only*
       // artwork source. Log non-happy outcomes (a silent `else { return }` once
       // hid the 403 that motivated this search-based path).
-      let result = await self.searchCatalog(query: query, limit: MusicSearch.defaultLimit)
+      let result = await searchCatalog(query: query, limit: MusicSearch.defaultLimit)
       guard case let .success(tracks) = result else {
         print("[Spotify] artwork resolve (search) failed for \(trackID): \(result)")
         return
@@ -422,10 +429,10 @@ final class SpotifyAdapter: NSObject, MusicSource {
           + "in \(tracks.count) results")
         return
       }
-      self.artworkCache[trackID] = url
+      artworkCache[trackID] = url
       // Re-emit only if this is still the current track.
-      if let snapshot = self.lastSnapshot, Self.trackID(from: snapshot.uri) == trackID {
-        self.emit(snapshot: snapshot)
+      if let snapshot = lastSnapshot, Self.trackID(from: snapshot.uri) == trackID {
+        emit(snapshot: snapshot)
       }
     }
   }

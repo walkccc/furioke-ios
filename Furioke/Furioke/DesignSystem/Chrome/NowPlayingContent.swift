@@ -22,6 +22,13 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
   let onToggleFurigana: () -> Void
   let onToggleRomaji: () -> Void
   let onToggleTranslation: () -> Void
+  /// Whether the active provider can change playback rate — gates the speed
+  /// control. The options menu shows the speed picker only when true.
+  let supportsPlaybackRate: Bool
+  /// The active track's current playback rate (1 = normal); selects the active
+  /// option in the speed picker.
+  let playbackRate: Double
+  let onSetPlaybackRate: (Double) -> Void
   /// Furigana is being computed in the background (a cold kuromoji build can take
   /// a few seconds). Drives a progress toast — shown only while `showFurigana` is
   /// on, since the readings are computed regardless but there's nothing to wait
@@ -203,6 +210,25 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
       Toggle(isOn: toggleBinding(showTranslation, onToggleTranslation)) {
         Label("Show translation", systemImage: "translate")
       }
+      if supportsPlaybackRate {
+        Divider()
+        // A nested submenu, so the seven rates stay tucked behind one row
+        // instead of crowding the options menu. The active rate carries a
+        // leading checkmark.
+        Menu {
+          ForEach(MusicPlaybackRate.options, id: \.self) { rate in
+            Button { onSetPlaybackRate(rate) } label: {
+              if rate == playbackRate {
+                Label(speedLabel(rate), systemImage: "checkmark")
+              } else {
+                Text(speedLabel(rate))
+              }
+            }
+          }
+        } label: {
+          Label("Playback speed", systemImage: "gauge.with.dots.needle.50percent")
+        }
+      }
       Divider()
       Button(action: onToggleSave) {
         Label(
@@ -226,6 +252,12 @@ struct NowPlayingContent<Lyrics: View, Timeline: View, Video: View>: View {
   /// real state lives in `NowPlayingState` (via the injected toggle closures).
   private func toggleBinding(_ value: Bool, _ toggle: @escaping () -> Void) -> Binding<Bool> {
     Binding(get: { value }, set: { _ in toggle() })
+  }
+
+  /// `1×`, `0.5×`, `1.25×` — integral rates drop the decimal.
+  private func speedLabel(_ rate: Double) -> String {
+    let text = rate == rate.rounded() ? String(Int(rate)) : String(rate)
+    return "\(text)×"
   }
 
   @ViewBuilder

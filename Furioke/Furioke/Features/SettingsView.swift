@@ -169,7 +169,7 @@ struct SettingsView: View {
   /// back to opaque `contentSurface` material so it stays fully legible —
   /// honouring the chrome-vs-content split's legibility guarantee.
   @ViewBuilder
-  private func cardPane<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+  private func cardPane(@ViewBuilder content: () -> some View) -> some View {
     let shape = RoundedRectangle(cornerRadius: Radii.xl, style: .continuous)
     let padded = content()
       .padding(.horizontal, Spacing.l)
@@ -189,9 +189,9 @@ struct SettingsView: View {
   /// One section group: a `SectionHeader` label sitting above a floating, inset
   /// glass `cardPane`, inset from the screen edges by `Spacing.l` so it reads as
   /// a grouped-inset unit.
-  private func sectionCard<Content: View>(
+  private func sectionCard(
     _ title: LocalizedStringKey,
-    @ViewBuilder content: () -> Content
+    @ViewBuilder content: () -> some View
   ) -> some View {
     VStack(alignment: .leading, spacing: Spacing.xs) {
       SectionHeader(title)
@@ -384,11 +384,11 @@ struct SettingsView: View {
   /// Shared three-column option cell used by both selectors: an icon over a
   /// label. The active option is highlighted with an accent fill + ring (the
   /// filled state is the selection indicator — no checkmark, kept minimal).
-  private func optionCard<Icon: View>(
+  private func optionCard(
     label: String,
     isSelected: Bool,
     action: @escaping () -> Void,
-    @ViewBuilder icon: () -> Icon
+    @ViewBuilder icon: () -> some View
   ) -> some View {
     let shape = RoundedRectangle(cornerRadius: Radii.md, style: .continuous)
     return Button(action: action) {

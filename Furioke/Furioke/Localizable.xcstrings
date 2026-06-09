@@ -1958,6 +1958,22 @@
         }
       }
     },
+    "Playback speed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生速度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放速度"
+          }
+        }
+      }
+    },
     "Read" : {
       "localizations" : {
         "ja" : {

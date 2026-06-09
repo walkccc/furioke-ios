@@ -165,16 +165,16 @@ nonisolated struct Flashcard: Identifiable, Equatable {
 nonisolated struct SaveFlashcardInput: Equatable {
   let surface: String
   let reading: String
-  var sourceTitle: String? = nil
-  var sourceArtist: String? = nil
-  var sourceLine: String? = nil
+  var sourceTitle: String?
+  var sourceArtist: String?
+  var sourceLine: String?
   /// Start/end times (ms) of the captured source line, resolved from the song's
   /// synced lyrics at save time; nil when the song has no synced lyrics. `end` is
   /// the next line's start (nil for the last line) so study can play just the line.
-  var sourceLineStartMs: Int? = nil
-  var sourceLineEndMs: Int? = nil
+  var sourceLineStartMs: Int?
+  var sourceLineEndMs: Int?
   /// The playing track's provider + provider track id at save time, so study can
   /// start that song later; nil when nothing is playing.
-  var sourceProvider: String? = nil
-  var sourceTrackID: String? = nil
+  var sourceProvider: String?
+  var sourceTrackID: String?
 }

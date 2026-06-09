@@ -12,7 +12,7 @@ struct RubyText: View {
   /// kanji run and its okurigana light up together) is tinted with the accent —
   /// used by the flashcard study back-face to point out the saved word inside its
   /// captured lyric line.
-  var highlightWord: String? = nil
+  var highlightWord: String?
   /// Wrap cells across rows with `RubyFlowLayout` (the lyric surface, where a long
   /// line must flow). When false the cells stay on a single row in an `HStack` —
   /// the flashcard word faces render one short word and must never break a kanji
