@@ -22,6 +22,11 @@ struct FuriokeApp: App {
   @State private var library: LibraryState
   @State private var overrides: ReadingOverridesState
   @State private var flashcards: FlashcardsState
+  /// The Furioke Plus storefront: StoreKit purchase/restore and the on-device
+  /// `isPlus` entitlement the UI gates on. Owned here so every surface (Settings,
+  /// the quota notice, the flashcard cap) reads one entitlement and shares the
+  /// one paywall sheet.
+  @State private var subscriptions: SubscriptionStore
   /// The app-wide out-of-quota notice, raised when a translation request comes back
   /// 429 at the per-user daily limit and rendered once at the shell.
   @State private var quotaNotice: QuotaNotice
@@ -51,6 +56,10 @@ struct FuriokeApp: App {
     )
     let corrections = ReadingCorrectionsService(auth: auth)
     let quotaNotice = QuotaNotice()
+    // The Plus storefront is built before flashcards because the saved-deck cap
+    // gates on entitlement (Plus is unlimited), and before NowPlaying so the
+    // reading-editor capture path can offer the upgrade in place.
+    let subscriptions = SubscriptionStore(auth: auth)
     // Flashcards is built before NowPlaying because the lyric-surface capture
     // toggle (in the reading editor) and the reconnect flush both route through
     // NowPlaying, which holds this state.
@@ -61,7 +70,8 @@ struct FuriokeApp: App {
       network: network,
       preferences: preferences,
       translation: translationService,
-      quota: quotaNotice
+      quota: quotaNotice,
+      subscriptions: subscriptions
     )
     let nowPlaying = NowPlayingState(
       music: music,
@@ -100,6 +110,7 @@ struct FuriokeApp: App {
     _library = State(initialValue: library)
     _overrides = State(initialValue: overrides)
     _flashcards = State(initialValue: flashcards)
+    _subscriptions = State(initialValue: subscriptions)
     _quotaNotice = State(initialValue: quotaNotice)
   }
 
@@ -115,6 +126,7 @@ struct FuriokeApp: App {
         .environment(library)
         .environment(overrides)
         .environment(flashcards)
+        .environment(subscriptions)
         .environment(quotaNotice)
         // The offline cache's SwiftData container backs `@Query` in the Library
         // tab and `modelContext` writes elsewhere.
@@ -138,6 +150,10 @@ struct FuriokeApp: App {
         // lyric render path. Lyrics still show instantly regardless; this just
         // shortens how long the "adding furigana" indicator is up.
         .task { try? await KuromojiBridge.shared.preload() }
+        // Begin observing StoreKit transactions and load the Plus products, so a
+        // renewal or cross-device purchase lands while open and the paywall has
+        // prices ready. Off the launch critical path.
+        .task { subscriptions.start() }
     }
   }
 }
