@@ -12,8 +12,10 @@ import SwiftUI
 /// offline. It is advisory — the backend re-derives the same entitlement from
 /// the shared `subscriptions` table for real enforcement at `/api/translate`
 /// and the flashcard cap. Every verified transaction is reported to the backend
-/// (`PlusRegistrationService`) so that table stays in sync; App Store Server
-/// Notifications keep it fresh for renewals and refunds with no app open.
+/// (`PlusBackendService`) so that table stays in sync; App Store Server
+/// Notifications keep it fresh for renewals and refunds with no app open. The
+/// UI flag also folds in the backend's unified entitlement, so a subscription
+/// bought on the web (which on-device StoreKit can't see) still reads as Plus.
 ///
 /// A purchase binds to the signed-in Supabase user via `appAccountToken`, so
 /// the backend can resolve the account from the signed transaction (the webhook
@@ -26,9 +28,22 @@ final class SubscriptionStore {
   /// `loadProducts()` resolves (offline, or before StoreKit responds).
   private(set) var products: [Product] = []
 
-  /// Whether the signed-in user currently holds Plus, derived from the
-  /// on-device entitlements. Drives every UI affordance; never the server gate.
-  private(set) var isPlus = false
+  /// On-device StoreKit entitlement — true when the user holds an active Apple
+  /// Plus subscription. Instant and offline, but blind to a subscription bought
+  /// on the web.
+  private(set) var localEntitled = false
+
+  /// The backend's unified entitlement across every provider, so iOS knows about
+  /// a web (Stripe) subscription too. Refreshed on launch and on foreground;
+  /// left unchanged on a transient read failure.
+  private(set) var backendEntitled = false
+
+  /// Whether the user holds Plus from *any* storefront. Drives every UI
+  /// affordance; never the server gate. The OR is what stops a web subscriber
+  /// from being shown the upgrade prompt (and double-subscribing) on iOS.
+  var isPlus: Bool {
+    localEntitled || backendEntitled
+  }
 
   /// The product id whose purchase or restore is in flight, so the paywall can
   /// show a spinner on the right button and disable the rest. Nil when idle.
@@ -41,7 +56,7 @@ final class SubscriptionStore {
   var isPaywallPresented = false
 
   private let auth: AuthService
-  private let registration: PlusRegistrationService
+  private let backend: PlusBackendService
 
   /// The `Transaction.updates` listener, owned for the app's lifetime so
   /// renewals, Ask-to-Buy approvals, and cross-device purchases land while the
@@ -50,7 +65,7 @@ final class SubscriptionStore {
 
   init(auth: AuthService) {
     self.auth = auth
-    registration = PlusRegistrationService(auth: auth)
+    backend = PlusBackendService(auth: auth)
   }
 
   deinit {
@@ -70,7 +85,15 @@ final class SubscriptionStore {
       }
     }
     Task { await loadProducts() }
-    Task { await refreshEntitlement() }
+    Task { await refresh() }
+  }
+
+  /// Re-check entitlement from both sources. Called on launch and whenever the
+  /// app returns to the foreground, so a web purchase — or a server-side change
+  /// like a refund — is reflected without relaunching.
+  func refresh() async {
+    await refreshEntitlement()
+    await refreshBackendEntitlement()
   }
 
   /// Load the Plus products from the App Store, sorted into display order. A
@@ -118,7 +141,7 @@ final class SubscriptionStore {
   func restore() async {
     purchaseInFlight = nil
     try? await AppStore.sync()
-    await refreshEntitlement()
+    await refresh()
   }
 
   // MARK: Transactions
@@ -134,13 +157,13 @@ final class SubscriptionStore {
   /// only App Store-signed transactions grant access.
   private func fulfill(_ result: VerificationResult<StoreKit.Transaction>) async {
     guard case let .verified(transaction) = result else { return }
-    await registration.register(jws: result.jwsRepresentation)
+    await backend.register(jws: result.jwsRepresentation)
     await transaction.finish()
     await refreshEntitlement()
   }
 
-  /// Recompute `isPlus` from the on-device current entitlements: true when any
-  /// verified, unrevoked Plus subscription's paid period has not ended.
+  /// Recompute `localEntitled` from the on-device current entitlements: true when
+  /// any verified, unrevoked Plus subscription's paid period has not ended.
   private func refreshEntitlement() async {
     var entitled = false
     for await result in Transaction.currentEntitlements {
@@ -151,6 +174,15 @@ final class SubscriptionStore {
         entitled = true
       }
     }
-    isPlus = entitled
+    localEntitled = entitled
+  }
+
+  /// Refresh the unified entitlement from the backend (covers a subscription
+  /// bought on the web). A transient failure returns nil and leaves the current
+  /// value in place rather than flipping Plus off.
+  private func refreshBackendEntitlement() async {
+    if let value = await backend.fetchIsPlus() {
+      backendEntitled = value
+    }
   }
 }

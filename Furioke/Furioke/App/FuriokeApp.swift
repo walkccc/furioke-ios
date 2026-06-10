@@ -141,6 +141,9 @@ struct FuriokeApp: App {
         // earlier), and revive a backgrounded-and-dropped session on return.
         .onChange(of: scenePhase) { _, phase in
           spotify.setForegroundActive(phase == .active)
+          // Re-check Plus on foreground so a subscription bought on the web (or a
+          // refund) is reflected without relaunching.
+          if phase == .active { Task { await subscriptions.refresh() } }
         }
         // Evict cache entries past the 90-day retention bound, off the launch
         // critical path.
