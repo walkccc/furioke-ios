@@ -1,0 +1,66 @@
+{
+  "identifier" : "A1B2C3D4",
+  "nonRenewingSubscriptions" : [],
+  "products" : [],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : []
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "F1000001",
+      "localizations" : [],
+      "name" : "Furioke Plus",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "3.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "F1000010",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited AI translations, word lookups, and saved flashcards.",
+              "displayName" : "Furioke Plus (Monthly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.magicparklabs.Furioke.plus.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Furioke Plus Monthly",
+          "subscriptionGroupID" : "F1000001",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "29.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "F1000011",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Unlimited AI translations, word lookups, and saved flashcards.",
+              "displayName" : "Furioke Plus (Yearly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.magicparklabs.Furioke.plus.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Furioke Plus Yearly",
+          "subscriptionGroupID" : "F1000001",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

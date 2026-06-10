@@ -28,11 +28,18 @@ struct ReadingEditorCard: View {
   /// affordance. The playback overlay shows it for a kanji word; the overrides
   /// manager hides it.
   let showsSaveToFlashcards: Bool
+  /// Whether a free account has hit the saved-card cap. A *new* word can't be
+  /// saved while this holds, so the save control offers a Plus upgrade instead;
+  /// an already-saved word still toggles off normally.
+  let atFreeLimit: Bool
   let onCancel: () -> Void
   let onSave: (_ reading: String, _ rememberEverywhere: Bool) -> Void
   /// Toggle the word in the deck, carrying the current reading draft so a saved
   /// card uses the corrected reading. Called as the toggle flips.
   let onToggleSave: (_ reading: String) -> Void
+  /// Open the Plus paywall, called when the save control is tapped for a new word
+  /// while `atFreeLimit`.
+  let onUpgrade: () -> Void
 
   @State private var reading: String
   @State private var rememberEverywhere: Bool
@@ -58,17 +65,21 @@ struct ReadingEditorCard: View {
     showsRememberToggle: Bool = true,
     showsSaveToFlashcards: Bool = false,
     initialSaved: Bool = false,
+    atFreeLimit: Bool = false,
     onCancel: @escaping () -> Void,
     onSave: @escaping (String, Bool) -> Void,
-    onToggleSave: @escaping (String) -> Void = { _ in }
+    onToggleSave: @escaping (String) -> Void = { _ in },
+    onUpgrade: @escaping () -> Void = {}
   ) {
     self.surface = surface
     self.correctable = correctable
     self.showsRememberToggle = showsRememberToggle
     self.showsSaveToFlashcards = showsSaveToFlashcards
+    self.atFreeLimit = atFreeLimit
     self.onCancel = onCancel
     self.onSave = onSave
     self.onToggleSave = onToggleSave
+    self.onUpgrade = onUpgrade
     _reading = State(initialValue: initialReading)
     _rememberEverywhere = State(initialValue: initialRemember)
     _saved = State(initialValue: initialSaved)
@@ -194,32 +205,51 @@ struct ReadingEditorCard: View {
   /// A glass pill that saves the word to the flashcard deck (or removes it),
   /// lit when the word is in the deck — the same lit-glass idiom as the Remember
   /// toggle. Carries the current reading draft so a saved card uses the correction.
+  ///
+  /// At the free deck cap a new word can't be saved: tapping offers the Plus
+  /// upgrade instead, with a caption explaining why. An already-saved word ignores
+  /// the cap and still toggles off.
   private var saveToggle: some View {
-    Button {
-      saved.toggle()
-      onToggleSave(trimmedReading)
-    } label: {
-      HStack(spacing: Spacing.s) {
-        Image(systemName: saved ? "checkmark.circle.fill" : "circle")
-        Text("Save to flashcards")
-          .font(Typography.metadata)
+    VStack(alignment: .leading, spacing: Spacing.s) {
+      Button {
+        if !saved, atFreeLimit {
+          onUpgrade()
+        } else {
+          saved.toggle()
+          onToggleSave(trimmedReading)
+        }
+      } label: {
+        HStack(spacing: Spacing.s) {
+          Image(systemName: saved ? "checkmark.circle.fill" : "circle")
+          Text("Save to flashcards")
+            .font(Typography.metadata)
+        }
+        .foregroundStyle(saved ? .primary : .secondary)
+        .padding(.horizontal, Spacing.m)
+        .padding(.vertical, Spacing.s)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Capsule())
       }
-      .foregroundStyle(saved ? .primary : .secondary)
-      .padding(.horizontal, Spacing.m)
-      .padding(.vertical, Spacing.s)
-      .frame(maxWidth: .infinity, alignment: .leading)
-      .contentShape(Capsule())
+      .buttonStyle(.plain)
+      .background(
+        Capsule().fill(Color.primary.opacity(saved ? 0 : 0.06))
+      )
+      .glassEffect(Materials.controlTier.glass(active: saved), in: Capsule())
+      .disabled(!canSave)
+      .opacity(canSave ? 1 : 0.5)
+      .accessibilityLabel("Save to flashcards")
+      .accessibilityValue(saved ? "Saved" : "Not saved")
+      .accessibilityAddTraits(.isButton)
+
+      if !saved, atFreeLimit {
+        Text(
+          "You've saved all \(FlashcardsState.freeLimit) free flashcards. Go unlimited with Furioke Plus."
+        )
+        .font(Typography.furigana)
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, Spacing.s)
+      }
     }
-    .buttonStyle(.plain)
-    .background(
-      Capsule().fill(Color.primary.opacity(saved ? 0 : 0.06))
-    )
-    .glassEffect(Materials.controlTier.glass(active: saved), in: Capsule())
-    .disabled(!canSave)
-    .opacity(canSave ? 1 : 0.5)
-    .accessibilityLabel("Save to flashcards")
-    .accessibilityValue(saved ? "Saved" : "Not saved")
-    .accessibilityAddTraits(.isButton)
   }
 
   private var buttons: some View {

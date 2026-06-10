@@ -1,3 +1,4 @@
+import StoreKit
 import SwiftUI
 
 /// Settings: music-provider selection + connect / disconnect, language and
@@ -24,7 +25,12 @@ import SwiftUI
 struct SettingsView: View {
   @Environment(AuthService.self) private var auth
   @Environment(PreferencesState.self) private var preferences
+  @Environment(SubscriptionStore.self) private var subscriptions
   @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+  /// Drives the system "Manage Subscription" sheet from the Plus section, shown
+  /// to a current Plus member to change or cancel their plan.
+  @State private var isManagingSubscription = false
 
   /// Drives the two-step Delete Account flow: the trailing menu arms the
   /// confirmation dialog, the dialog performs the (irreversible) delete, and a
@@ -39,6 +45,7 @@ struct SettingsView: View {
       ScrollView {
         VStack(alignment: .leading, spacing: Spacing.l) {
           profileHeader
+          plusSection
           musicSection
           languageSection
           customizationSection
@@ -379,6 +386,95 @@ struct SettingsView: View {
     } else {
       Text("Browsing as guest")
     }
+  }
+
+  // MARK: - Furioke Plus
+
+  /// The Plus entry, pinned just below the profile so the upgrade (or the
+  /// active-member manage affordance) sits at the top of the scroll. A current
+  /// member sees an "Active" badge and a row that opens the system Manage
+  /// Subscription sheet; everyone else sees an upgrade row that opens the
+  /// paywall. Entitlement is read from `SubscriptionStore` (the on-device,
+  /// advisory flag), so it updates the moment a purchase or restore lands.
+  private var plusSection: some View {
+    sectionCard("Furioke Plus") {
+      if subscriptions.isPlus {
+        plusActiveRow
+        rowDivider
+        manageSubscriptionRow
+      } else {
+        plusUpgradeRow
+      }
+    }
+    .manageSubscriptionsSheet(isPresented: $isManagingSubscription)
+  }
+
+  /// The membership line for an active subscriber: the Plus glyph, a label, and
+  /// a trailing "Active" badge.
+  private var plusActiveRow: some View {
+    HStack(spacing: Spacing.m) {
+      iconTile(systemName: "sparkles", tint: Color.accentColor)
+      Text("Furioke Plus")
+        .font(Typography.body)
+      Spacer(minLength: 0)
+      Text("Active")
+        .font(Typography.metadata)
+        .foregroundStyle(Color.accentColor)
+        .padding(.horizontal, Spacing.s)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Color.accentColor.opacity(0.16)))
+    }
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel("Furioke Plus, active")
+  }
+
+  /// Opens the system Manage Subscription sheet, where a member changes plan or
+  /// cancels — the App Store, not the app, owns that flow.
+  private var manageSubscriptionRow: some View {
+    Button {
+      isManagingSubscription = true
+    } label: {
+      HStack(spacing: Spacing.m) {
+        iconTile(systemName: "creditcard", tint: Color.accentColor)
+        Text("Manage Subscription")
+          .font(Typography.body)
+        Spacer(minLength: 0)
+        Image(systemName: "chevron.right")
+          .font(.footnote.weight(.semibold))
+          .foregroundStyle(.tertiary)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .foregroundStyle(.primary)
+    .accessibilityLabel("Manage Subscription")
+  }
+
+  /// The upgrade row for a non-member: tapping it opens the paywall. The whole
+  /// row is one button (a trailing "Upgrade" label, not a nested button) so the
+  /// tap target stays the full width.
+  private var plusUpgradeRow: some View {
+    Button {
+      subscriptions.isPaywallPresented = true
+    } label: {
+      HStack(spacing: Spacing.m) {
+        iconTile(systemName: "sparkles", tint: Color.accentColor)
+        VStack(alignment: .leading, spacing: 2) {
+          Text("Furioke Plus")
+            .font(Typography.body)
+          Text("Unlimited AI translations and flashcards.")
+            .font(Typography.metadata)
+            .foregroundStyle(.secondary)
+        }
+        Spacer(minLength: Spacing.s)
+        Text("Upgrade")
+          .font(Typography.metadata.weight(.semibold))
+          .foregroundStyle(Color.accentColor)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel("Upgrade to Furioke Plus")
   }
 
   /// Shared three-column option cell used by both selectors: an icon over a

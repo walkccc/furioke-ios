@@ -23,6 +23,14 @@ final class FlashcardsState {
   /// reads as one in-flight state.
   private(set) var glossingSurfaces: Set<String> = []
 
+  /// Free (non-Plus) accounts can hold at most this many saved cards; Plus is
+  /// unlimited. Mirrors `FLASHCARD_FREE_LIMIT` in the backend's `lib/constants.ts`
+  /// and the BEFORE INSERT trigger in
+  /// `supabase/migrations/011_flashcard_free_limit.sql` — keep the three in sync.
+  /// The trigger is the real backstop (cards are written directly under RLS); this
+  /// is the in-app UX that offers an upgrade instead of a failed 51st save.
+  static let freeLimit = 50
+
   private let cache: OfflineCache
   private let service: FlashcardsService
   private let auth: AuthService
@@ -30,6 +38,7 @@ final class FlashcardsState {
   private let preferences: PreferencesState
   private let translation: TranslationService
   private let quota: QuotaNotice
+  private let subscriptions: SubscriptionStore
 
   init(
     cache: OfflineCache,
@@ -38,7 +47,8 @@ final class FlashcardsState {
     network: NetworkMonitor,
     preferences: PreferencesState,
     translation: TranslationService,
-    quota: QuotaNotice
+    quota: QuotaNotice,
+    subscriptions: SubscriptionStore
   ) {
     self.cache = cache
     self.service = service
@@ -47,6 +57,15 @@ final class FlashcardsState {
     self.preferences = preferences
     self.translation = translation
     self.quota = quota
+    self.subscriptions = subscriptions
+  }
+
+  /// Whether saving a *new* word is blocked by the free deck cap: a non-Plus
+  /// account that already holds `freeLimit` cards. Already-saved words can still
+  /// be removed; Plus is never capped. The reading editor reads this to offer the
+  /// upgrade instead of saving the 51st card.
+  var atFreeLimit: Bool {
+    !subscriptions.isPlus && deck.count >= Self.freeLimit
   }
 
   /// Whether the active language's gloss for `surface` is being fetched right now —
@@ -122,6 +141,10 @@ final class FlashcardsState {
   /// for the reconnect flush.
   func save(_ input: SaveFlashcardInput) async {
     guard let userID = currentUserID else { return }
+    // Backstop the free deck cap: the capture UI offers an upgrade instead of
+    // saving the 51st card, but guard here too so no path exceeds the limit and
+    // trips the server trigger's failed insert.
+    guard !atFreeLimit else { return }
     let now = Date()
     let card = Flashcard(
       surface: input.surface,

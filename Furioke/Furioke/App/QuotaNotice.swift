@@ -34,20 +34,29 @@ final class QuotaNotice {
 
 private struct QuotaNoticeToast: ViewModifier {
   @Environment(QuotaNotice.self) private var quota
+  @Environment(SubscriptionStore.self) private var subscriptions
 
   func body(content: Content) -> some View {
     content.overlay(alignment: .top) {
       if quota.translationLimitShown {
-        // Built from the same `Toast` vocabulary as the Now Playing notices; the
-        // copy leads with the limit and points at the upgrade so the learner knows
-        // translations are spent for the day *and* how to lift the cap.
-        Toast(
-          text: "Daily translation limit reached. Upgrade for unlimited translations.",
-          kind: .icon("sparkles")
-        )
+        // Built from the same `Toast` vocabulary as the Now Playing notices. The
+        // copy reframes the cap as a free *allowance* (spent for today, resets
+        // tomorrow) rather than a wall, and tapping it opens the Plus paywall —
+        // the calm upgrade affordance the text points at.
+        Button {
+          subscriptions.isPaywallPresented = true
+        } label: {
+          Toast(
+            text:
+            "You've used today's \(TranslationService.dailyLimit) free AI translations. Go unlimited with Furioke Plus.",
+            kind: .icon("sparkles")
+          )
+        }
+        .buttonStyle(.plain)
         .padding(.top, Spacing.xxl)
         .padding(.horizontal, Spacing.l)
         .transition(.move(edge: .top).combined(with: .opacity))
+        .accessibilityHint("Opens Furioke Plus")
       }
     }
   }

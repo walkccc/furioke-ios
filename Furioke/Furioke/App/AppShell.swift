@@ -20,6 +20,7 @@ struct AppShell: View {
   @Environment(FlashcardsState.self) private var flashcards
   @Environment(YouTubePlayerController.self) private var youTube
   @Environment(PreferencesState.self) private var preferences
+  @Environment(SubscriptionStore.self) private var subscriptions
 
   /// Namespace + id pairing the mini-player's `.matchedTransitionSource` with the
   /// NowPlaying cover's `.navigationTransition(.zoom)`, so the whole platter zooms
@@ -63,6 +64,13 @@ struct AppShell: View {
     .sheet(isPresented: signInPromptBinding(whileCoverPresented: false)) {
       SignInView()
     }
+    // The shared Plus paywall. Like the sign-in prompt, it's hosted in two places
+    // (here and the NowPlaying cover) because a sheet can't present from under a
+    // `fullScreenCover`; each host is gated to whether the cover is up so only one
+    // ever presents for the single flag.
+    .sheet(isPresented: paywallBinding(whileCoverPresented: false)) {
+      PlusPaywallView()
+    }
     // Pull the user's reading overrides from Supabase on launch / sign-in (and
     // flush any queued local writes first), so corrections made on another device
     // or before a reinstall apply to lyrics here. Reconnects are covered separately
@@ -83,6 +91,16 @@ struct AppShell: View {
     Binding(
       get: { auth.isSignInPromptPresented && nowPlaying.isPresented == coverPresented },
       set: { newValue in if !newValue { auth.isSignInPromptPresented = false } }
+    )
+  }
+
+  /// The Plus paywall flag (`SubscriptionStore.isPaywallPresented`), hosted in the
+  /// shell and the NowPlaying cover for the same reason as the sign-in prompt.
+  /// Each host scopes itself to whether the cover is up so only one presents.
+  private func paywallBinding(whileCoverPresented coverPresented: Bool) -> Binding<Bool> {
+    Binding(
+      get: { subscriptions.isPaywallPresented && nowPlaying.isPresented == coverPresented },
+      set: { newValue in if !newValue { subscriptions.isPaywallPresented = false } }
     )
   }
 
@@ -200,10 +218,18 @@ struct AppShell: View {
     .environment(nowPlaying)
     .environment(flashcards)
     .environment(youTube)
+    // The flashcard cap's upgrade path lives in the reading editor under this
+    // cover, so the Plus store + paywall are re-injected here too.
+    .environment(subscriptions)
     // The cover hosts its own copy of the sign-in prompt, since a sheet can't
     // present from under a `fullScreenCover`. Scoped to when the cover is up.
     .sheet(isPresented: signInPromptBinding(whileCoverPresented: true)) {
       SignInView()
+    }
+    // The cover's own copy of the Plus paywall, for the same reason — opened by
+    // the editor's save toggle when a free deck is at the cap.
+    .sheet(isPresented: paywallBinding(whileCoverPresented: true)) {
+      PlusPaywallView()
     }
   }
 
@@ -298,13 +324,17 @@ struct AppShell: View {
           initialRemember: edit.rememberEverywhere,
           showsSaveToFlashcards: true,
           initialSaved: nowPlaying.isEditingWordSaved,
+          // A free deck at its cap can't take a new word — the save toggle offers
+          // the upgrade instead. An already-saved word still toggles off.
+          atFreeLimit: flashcards.atFreeLimit,
           onCancel: { nowPlaying.cancelEditing() },
           onSave: { reading, remember in
             nowPlaying.commitEditing(reading: reading, rememberEverywhere: remember)
           },
           onToggleSave: { reading in
             nowPlaying.toggleSaveCurrentWord(reading: reading)
-          }
+          },
+          onUpgrade: { subscriptions.isPaywallPresented = true }
         )
         .padding(.horizontal, Spacing.l)
         .padding(.bottom, correctable ? Spacing.l : 0)
