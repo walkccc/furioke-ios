@@ -93,6 +93,7 @@ final class NowPlayingState {
   private let corrections: ReadingCorrectionsService
   private let flashcards: FlashcardsState
   private let network: NetworkMonitor
+  private let ratingPrompt: RatingPromptController
   private let annotator = FuriganaAnnotator()
 
   @ObservationIgnored private var loadTask: Task<Void, Never>?
@@ -100,6 +101,11 @@ final class NowPlayingState {
   @ObservationIgnored private var noticeResetTask: Task<Void, Never>?
   @ObservationIgnored private var reannotateTask: Task<Void, Never>?
   @ObservationIgnored private var loadedTrackID: String?
+
+  /// The last track whose successful lyric load was already counted toward the
+  /// review prompt, so the cache emitting twice (cached then revalidated body) for
+  /// one track counts as a single song view.
+  @ObservationIgnored private var ratedTrackID: String?
 
   /// The raw LRC body for the loaded track, kept so a reading edit can re-run the
   /// furigana annotator locally without re-fetching `/api/lyrics`.
@@ -119,7 +125,8 @@ final class NowPlayingState {
     auth: AuthService,
     corrections: ReadingCorrectionsService,
     flashcards: FlashcardsState,
-    network: NetworkMonitor
+    network: NetworkMonitor,
+    ratingPrompt: RatingPromptController
   ) {
     self.music = music
     self.repository = repository
@@ -130,6 +137,7 @@ final class NowPlayingState {
     self.corrections = corrections
     self.flashcards = flashcards
     self.network = network
+    self.ratingPrompt = ratingPrompt
     observeCurrentTrack()
     observeReconnect()
     observeLanguage()
@@ -257,6 +265,13 @@ final class NowPlayingState {
       // blocking the whole surface on it is what made lyrics feel slow to load.
       lines = annotator.plainLines(lrcBody: result.body)
       status = .loaded
+      // Lyrics on screen is the app's core value moment — count it toward the
+      // review prompt, once per track (the cache can emit a cached then a
+      // revalidated body for the same song).
+      if ratedTrackID != loadedTrackID {
+        ratedTrackID = loadedTrackID
+        ratingPrompt.recordSongViewed()
+      }
       // Funnel the initial pass through the same cancellable task as a later
       // override change: if the launch override sync lands while this (cold, slow)
       // tokenize is in flight, its `reannotate` cancels this pass and re-runs with

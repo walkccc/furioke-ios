@@ -22,9 +22,17 @@ struct FuriokeApp: App {
   @State private var library: LibraryState
   @State private var overrides: ReadingOverridesState
   @State private var flashcards: FlashcardsState
+  /// The Furioke Plus storefront: StoreKit purchase/restore and the on-device
+  /// `isPlus` entitlement the UI gates on. Owned here so every surface (Settings,
+  /// the quota notice, the flashcard cap) reads one entitlement and shares the
+  /// one paywall sheet.
+  @State private var subscriptions: SubscriptionStore
   /// The app-wide out-of-quota notice, raised when a translation request comes back
   /// 429 at the per-user daily limit and rendered once at the shell.
   @State private var quotaNotice: QuotaNotice
+  /// Counts core value moments (songs read along to) and arms the native App Store
+  /// review prompt, which `AppShell` presents at a logical pause.
+  @State private var ratingPrompt: RatingPromptController
 
   /// Drives the Spotify App Remote connect lifecycle: the post-auth-callback connect
   /// must wait for `.active`, and a session dropped while backgrounded is revived on
@@ -51,6 +59,11 @@ struct FuriokeApp: App {
     )
     let corrections = ReadingCorrectionsService(auth: auth)
     let quotaNotice = QuotaNotice()
+    let ratingPrompt = RatingPromptController()
+    // The Plus storefront is built before flashcards because the saved-deck cap
+    // gates on entitlement (Plus is unlimited), and before NowPlaying so the
+    // reading-editor capture path can offer the upgrade in place.
+    let subscriptions = SubscriptionStore(auth: auth)
     // Flashcards is built before NowPlaying because the lyric-surface capture
     // toggle (in the reading editor) and the reconnect flush both route through
     // NowPlaying, which holds this state.
@@ -61,7 +74,8 @@ struct FuriokeApp: App {
       network: network,
       preferences: preferences,
       translation: translationService,
-      quota: quotaNotice
+      quota: quotaNotice,
+      subscriptions: subscriptions
     )
     let nowPlaying = NowPlayingState(
       music: music,
@@ -72,7 +86,8 @@ struct FuriokeApp: App {
       auth: auth,
       corrections: corrections,
       flashcards: flashcards,
-      network: network
+      network: network,
+      ratingPrompt: ratingPrompt
     )
     let overrides = ReadingOverridesState(
       cache: cache,
@@ -85,9 +100,13 @@ struct FuriokeApp: App {
       service: SavedSongsService(auth: auth),
       network: network
     )
-    // Purge every per-user cache entity on explicit sign-out. Auth must
-    // not import the cache, so the composition root wires the teardown here.
-    auth.onSignOutCleanup = { [cache] in cache.purgeAll() }
+    // Purge every per-user cache entity and drop the Plus entitlement on
+    // explicit sign-out. Auth must not import the cache or the storefront, so
+    // the composition root wires the teardown here.
+    auth.onSignOutCleanup = { [cache, weak subscriptions] in
+      cache.purgeAll()
+      subscriptions?.clearForSignOut()
+    }
 
     _auth = State(initialValue: auth)
     _spotify = State(initialValue: spotify)
@@ -100,7 +119,9 @@ struct FuriokeApp: App {
     _library = State(initialValue: library)
     _overrides = State(initialValue: overrides)
     _flashcards = State(initialValue: flashcards)
+    _subscriptions = State(initialValue: subscriptions)
     _quotaNotice = State(initialValue: quotaNotice)
+    _ratingPrompt = State(initialValue: ratingPrompt)
   }
 
   var body: some Scene {
@@ -115,7 +136,9 @@ struct FuriokeApp: App {
         .environment(library)
         .environment(overrides)
         .environment(flashcards)
+        .environment(subscriptions)
         .environment(quotaNotice)
+        .environment(ratingPrompt)
         // The offline cache's SwiftData container backs `@Query` in the Library
         // tab and `modelContext` writes elsewhere.
         .modelContainer(cache.container)
@@ -129,6 +152,9 @@ struct FuriokeApp: App {
         // earlier), and revive a backgrounded-and-dropped session on return.
         .onChange(of: scenePhase) { _, phase in
           spotify.setForegroundActive(phase == .active)
+          // Re-check Plus on foreground so a subscription bought on the web (or a
+          // refund) is reflected without relaunching.
+          if phase == .active { Task { await subscriptions.refresh() } }
         }
         // Evict cache entries past the 90-day retention bound, off the launch
         // critical path.
@@ -138,6 +164,10 @@ struct FuriokeApp: App {
         // lyric render path. Lyrics still show instantly regardless; this just
         // shortens how long the "adding furigana" indicator is up.
         .task { try? await KuromojiBridge.shared.preload() }
+        // Begin observing StoreKit transactions and load the Plus products, so a
+        // renewal or cross-device purchase lands while open and the paywall has
+        // prices ready. Off the launch critical path.
+        .task { subscriptions.start() }
     }
   }
 }
