@@ -292,7 +292,7 @@ struct PaywallView: View {
   /// matching the app's other external links.
   private var legalLinks: some View {
     HStack(spacing: Spacing.s) {
-      Link("Terms of Service", destination: Self.termsURL)
+      Link("Terms of Use", destination: Self.termsURL)
       Text("·")
         .foregroundStyle(.tertiary)
         .accessibilityHidden(true)

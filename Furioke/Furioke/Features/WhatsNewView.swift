@@ -13,6 +13,9 @@ struct ReleaseNote: Identifiable {
 
   /// Newest first — the order they're rendered in `WhatsNewView`.
   static let all: [ReleaseNote] = [
+    ReleaseNote(version: "1.0.2", items: [
+      "Improved UI",
+    ]),
     ReleaseNote(version: "1.0.1", items: [
       "Improved UI",
     ]),
